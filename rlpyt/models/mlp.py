@@ -1,5 +1,7 @@
 
 import torch
+from rlpyt.models.utils import layer_init
+import numpy as np
 
 
 class MlpModel(torch.nn.Module):
@@ -18,20 +20,28 @@ class MlpModel(torch.nn.Module):
             hidden_sizes,  # Can be empty list or None for none.
             output_size=None,  # if None, last layer has nonlinearity applied.
             nonlinearity=torch.nn.ReLU,  # Module, not Functional.
+            inits=None
             ):
         super().__init__()
         if isinstance(hidden_sizes, int):
             hidden_sizes = [hidden_sizes]
         elif hidden_sizes is None:
             hidden_sizes = []
-        hidden_layers = [torch.nn.Linear(n_in, n_out) for n_in, n_out in
-            zip([input_size] + hidden_sizes[:-1], hidden_sizes)]
+        if inits is None:
+            hidden_layers = [torch.nn.Linear(n_in, n_out) for n_in, n_out in
+                zip([input_size] + hidden_sizes[:-1], hidden_sizes)]
+        else:
+            hidden_layers = [layer_init(torch.nn.Linear(n_in, n_out), inits[0]) for n_in, n_out in
+                zip([input_size] + hidden_sizes[:-1], hidden_sizes)]
         sequence = list()
         for layer in hidden_layers:
             sequence.extend([layer, nonlinearity()])
         if output_size is not None:
             last_size = hidden_sizes[-1] if hidden_sizes else input_size
-            sequence.append(torch.nn.Linear(last_size, output_size))
+            if inits is None:
+                sequence.append(torch.nn.Linear(last_size, output_size))
+            else:
+                sequence.append(layer_init(torch.nn.Linear(last_size, output_size), inits[1]))
         self.model = torch.nn.Sequential(*sequence)
         self._output_size = (hidden_sizes[-1] if output_size is None
             else output_size)

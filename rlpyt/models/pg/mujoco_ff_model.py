@@ -25,17 +25,23 @@ class MujocoFfModel(torch.nn.Module):
             normalize_observation=False,
             norm_obs_clip=10,
             norm_obs_var_clip=1e-6,
+            baselines_init=True,  # Orthogonal initialization of sqrt(2) until last layer, then 0.01 for policy, 1 for value
             ):
         """Instantiate neural net modules according to inputs."""
         super().__init__()
         self._obs_ndim = len(observation_shape)
         input_size = int(np.prod(observation_shape))
         hidden_sizes = hidden_sizes or [64, 64]
+        inits_mu = inits_v = None
+        if baselines_init:
+            inits_mu = (np.sqrt(2), 0.01)
+            inits_v = (np.sqrt(2), 1.)
         mu_mlp = MlpModel(
             input_size=input_size,
             hidden_sizes=hidden_sizes,
             output_size=action_size,
             nonlinearity=hidden_nonlinearity,
+            inits=inits_mu
         )
         if mu_nonlinearity is not None:
             self.mu = torch.nn.Sequential(mu_mlp, mu_nonlinearity())
@@ -46,6 +52,7 @@ class MujocoFfModel(torch.nn.Module):
             hidden_sizes=hidden_sizes,
             output_size=1,
             nonlinearity=hidden_nonlinearity,
+            inits=inits_v
         )
         self.log_std = torch.nn.Parameter(init_log_std * torch.ones(action_size))
         if normalize_observation:

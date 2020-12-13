@@ -10,7 +10,7 @@ from rlpyt.utils.collections import namedarraytuple
 from rlpyt.utils.misc import iterate_mb_idxs
 
 LossInputs = namedarraytuple("LossInputs",
-    ["agent_inputs", "action", "return_", "advantage", "valid", "old_dist_info"])
+    ["agent_inputs", "action", "return_", "advantage", "valid", "old_dist_info", "old_value"])
 
 
 class PPO(PolicyGradientAlgo):
@@ -37,6 +37,7 @@ class PPO(PolicyGradientAlgo):
             ratio_clip=0.1,
             linear_lr_schedule=True,
             normalize_advantage=False,
+            clip_vf_loss=False
             ):
         """Saves input settings."""
         if optim_kwargs is None:
@@ -80,6 +81,7 @@ class PPO(PolicyGradientAlgo):
             advantage=advantage,
             valid=valid,
             old_dist_info=samples.agent.agent_info.dist_info,
+            old_value=samples.agent.agent_info.value
         )
         if recurrent:
             # Leave in [B,N,H] for slicing to minibatches.
@@ -114,7 +116,7 @@ class PPO(PolicyGradientAlgo):
 
         return opt_info
 
-    def loss(self, agent_inputs, action, return_, advantage, valid, old_dist_info,
+    def loss(self, agent_inputs, action, return_, advantage, valid, old_dist_info, old_value,
             init_rnn_state=None):
         """
         Compute the training loss: policy_loss + value_loss + entropy_loss
@@ -133,6 +135,7 @@ class PPO(PolicyGradientAlgo):
             dist_info, value = self.agent(*agent_inputs)
         dist = self.agent.distribution
 
+        # Surrogate policy loss
         ratio = dist.likelihood_ratio(action, old_dist_info=old_dist_info,
             new_dist_info=dist_info)
         surr_1 = ratio * advantage
@@ -142,7 +145,15 @@ class PPO(PolicyGradientAlgo):
         surrogate = torch.min(surr_1, surr_2)
         pi_loss = - valid_mean(surrogate, valid)
 
-        value_error = 0.5 * (value - return_) ** 2
+        # Surrogate value loss (if doing)
+        if self.clip_vf_loss:
+            v_loss_unclipped = (value - return_) ** 2
+            v_clipped = old_value + torch.clamp(value - old_value, -self.ratio_clip, self.ratio_clip)
+            v_loss_clipped = (v_clipped - return_) ** 2
+            v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
+            value_error = 0.5 * v_loss_max.mean()
+        else:
+            value_error = 0.5 * (value - return_) ** 2
         value_loss = self.value_loss_coeff * valid_mean(value_error, valid)
 
         entropy = dist.mean_entropy(dist_info, valid)

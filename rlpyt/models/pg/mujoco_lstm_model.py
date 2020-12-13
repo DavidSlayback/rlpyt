@@ -25,17 +25,22 @@ class MujocoLstmModel(torch.nn.Module):
             normalize_observation=False,
             norm_obs_clip=10,
             norm_obs_var_clip=1e-6,
+            baselines_init=False
             ):
         super().__init__()
         self._obs_n_dim = len(observation_shape)
         self._action_size = action_size
         hidden_sizes = hidden_sizes or [256, 256]
         mlp_input_size = int(np.prod(observation_shape))
+        inits=None
+        if baselines_init:
+            inits = (np.sqrt(2), np.sqrt(2))
         self.mlp = MlpModel(
             input_size=mlp_input_size,
             hidden_sizes=hidden_sizes,
             output_size=None,
             nonlinearity=nonlinearity,
+            inits=inits
         )
         mlp_output_size = hidden_sizes[-1] if hidden_sizes else mlp_input_size
         self.lstm = torch.nn.LSTM(mlp_output_size + action_size + 1, lstm_size)
