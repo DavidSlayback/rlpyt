@@ -37,11 +37,12 @@ class PPO(PolicyGradientAlgo):
             ratio_clip=0.1,
             linear_lr_schedule=True,
             normalize_advantage=False,
-            clip_vf_loss=False
+            clip_vf_loss=False,
+            normalize_rewards=True
             ):
         """Saves input settings."""
         if optim_kwargs is None:
-            optim_kwargs = dict()
+            optim_kwargs = dict(eps=1e-5)
         save__init__args(locals())
 
     def initialize(self, *args, **kwargs):

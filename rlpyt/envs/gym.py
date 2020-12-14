@@ -161,13 +161,20 @@ def infill_info(info, sometimes_info):
     return info
 
 
+class ClipActionsWrapper(gym.Wrapper):
+    def step(self, action):
+        import numpy as np
+        action = np.nan_to_num(action)
+        action = np.clip(action, self.action_space.low, self.action_space.high)
+        return self.env.step(action)
+
 def make(*args, info_example=None, **kwargs):
     """Use as factory function for making instances of gym environment with
     rlpyt's ``GymEnvWrapper``, using ``gym.make(*args, **kwargs)``.  If
     ``info_example`` is not ``None``, will include the ``EnvInfoWrapper``.
     """
     if info_example is None:
-        return GymEnvWrapper(gym.make(*args, **kwargs))
+        return GymEnvWrapper(ClipActionsWrapper(gym.make(*args, **kwargs)))
     else:
         return GymEnvWrapper(EnvInfoWrapper(
-            gym.make(*args, **kwargs), info_example))
+            ClipActionsWrapper(gym.make(*args, **kwargs), info_example)))

@@ -24,7 +24,6 @@ from rlpyt.experiments.configs.mujoco.pg.mujoco_ppo import configs
 
 def build_and_train(env_id="HalfCheetahPGym-v0", run_ID=0, cuda_idx=None, n_parallel=6):
     affinity = dict(cuda_idx=cuda_idx, workers_cpus=list(range(n_parallel)), alternating=True)
-    """
     sampler = AlternatingSampler(
         EnvCls=gym_make,
         env_kwargs=dict(id=env_id),
@@ -32,12 +31,11 @@ def build_and_train(env_id="HalfCheetahPGym-v0", run_ID=0, cuda_idx=None, n_para
         batch_T=8,  # One time-step per sampler iteration.
         batch_B=256,  # One environment (i.e. sampler Batch dimension).
         max_decorrelation_steps=400,
-        eval_n_envs=10,
-        eval_max_steps=int(51e3),
-        eval_max_trajectories=50
+        eval_n_envs=5,
+        eval_max_steps=int(25e3),
+        eval_max_trajectories=30
     )
     """
-
     sampler = SerialSampler(
         EnvCls=gym_make,
         env_kwargs=dict(id=env_id),
@@ -49,8 +47,9 @@ def build_and_train(env_id="HalfCheetahPGym-v0", run_ID=0, cuda_idx=None, n_para
         eval_max_steps=int(51e2),
         eval_max_trajectories=50,
     )
+    """
 
-    algo = PPO(clip_vf_loss=True)  # Run with defaults.
+    algo = PPO(clip_vf_loss=False)  # Run with defaults.
     agent = MujocoFfAgent()
     runner = MinibatchRlEval(
         algo=algo,

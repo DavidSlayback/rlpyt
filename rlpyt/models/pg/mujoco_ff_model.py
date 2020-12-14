@@ -22,7 +22,7 @@ class MujocoFfModel(torch.nn.Module):
             hidden_nonlinearity=torch.nn.Tanh,  # Module form.
             mu_nonlinearity=torch.nn.Tanh,  # Module form.
             init_log_std=0.,
-            normalize_observation=False,
+            normalize_observation=True,
             norm_obs_clip=10,
             norm_obs_var_clip=1e-6,
             baselines_init=True,  # Orthogonal initialization of sqrt(2) until last layer, then 0.01 for policy, 1 for value
