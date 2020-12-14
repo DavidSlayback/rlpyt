@@ -1,6 +1,6 @@
 
 import torch
-from rlpyt.models.running_mean_std import RunningMeanStdModel1d
+from rlpyt.models.running_mean_std import RunningReward, RunningReturn
 from collections import namedtuple
 
 from rlpyt.algos.base import RlAlgorithm
@@ -38,9 +38,9 @@ class PolicyGradientAlgo(RlAlgorithm):
         self.mid_batch_reset = mid_batch_reset
         self.rank = rank
         self.world_size = world_size
-        self.ret_rms = RunningMeanStdModel1d()
-        self.norm_ret_clip = 10
-        self.norm_ret_var_clip = 1e-6
+        self.ret_rms = None if self.normalize_rewards is None else \
+        RunningReward(None, *self.rew_clip, self.rew_min_var) if self.normalize_rewards == 'reward' else \
+            RunningReturn((self.batch_spec.B,), self.discount, *self.rew_clip, self.rew_min_var)
 
     def process_returns(self, samples):
         """
@@ -52,11 +52,9 @@ class PolicyGradientAlgo(RlAlgorithm):
         """
         reward, done, value, bv = (samples.env.reward, samples.env.done,
             samples.agent.agent_info.value, samples.agent.bootstrap_value)
-        if self.normalize_rewards:  # Normalize and clip rewards before computing advantage
-            self.ret_rms.update(reward)
-            var = torch.clamp(self.ret_rms.var, min=self.norm_ret_var_clip)
-            reward = torch.clamp((reward - self.ret_rms.mean) / var.sqrt(), -self.norm_ret_clip, self.norm_ret_clip)
         done = done.type(reward.dtype)
+        if self.normalize_rewards:  # Normalize and clip rewards before computing advantage
+            reward = self.ret_rms(reward, done)
 
         if self.gae_lambda == 1:  # GAE reduces to empirical discounted.
             return_ = discount_return(reward, done, bv, self.discount)
