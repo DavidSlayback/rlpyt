@@ -49,13 +49,13 @@ def build_and_train(env_id="HalfCheetahPGym-v0", run_ID=0, cuda_idx=None, n_para
     #     eval_max_trajectories=5,
     # )
 
-    algo = PPO(clip_vf_loss=False, normalize_rewards='return')  # Run with defaults.
+    algo = PPO(clip_vf_loss=False, normalize_rewards='reward')  # Run with defaults.
     agent = MujocoFfAgent()
     runner = MinibatchRlEval(
         algo=algo,
         agent=agent,
         sampler=sampler,
-        n_steps=5e5,
+        n_steps=1e6,
         log_interval_steps=1e4,
         affinity=affinity,
     )
