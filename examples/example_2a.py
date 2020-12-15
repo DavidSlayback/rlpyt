@@ -56,10 +56,11 @@ def build_and_train(env_id="HalfCheetah-Directional-v0", run_ID=0, cuda_idx=None
         agent=agent,
         sampler=sampler,
         n_steps=1e6,
-        log_interval_steps=1e4,
+        log_interval_steps=1e3,
         affinity=affinity,
         transfer=True,
-        transfer_iter=150
+        transfer_iter=150,
+        log_traj_window=10
     )
     config = dict(env_id=env_id)
     name = "ppo_" + env_id

@@ -285,7 +285,8 @@ class MinibatchRl(MinibatchRlBase):
         self.pbar = ProgBarCounter(self.log_interval_itrs)
 
     # Helper function to refill queue. Sample until we have enough new trajectories
-    def _transfer_start(self, itr, prev_opt_info, n_traj=10):
+    def _transfer_start(self, itr, prev_opt_info, n_traj=None):
+        if n_traj is None: n_traj = self._traj_infos.maxlen
         self.agent.sample_mode(itr)
         while len(self._traj_infos) < n_traj:
             samples, traj_infos = self.sampler.obtain_samples(itr)
