@@ -72,6 +72,10 @@ class AsyncRlBase(BaseRunner):
             affinity,
             seed=None,
             log_interval_steps=1e5,
+            transfer=False,  # Whether to transfer
+            transfer_arg=0.,  # Argument passed to transfer method
+            transfer_iter=150,  # Iteration of training at which to transfer
+            transfer_timestep=0,  # Overrides transfer_iter if not 0, timestep
             ):
         n_steps = int(n_steps)
         log_interval_steps = int(log_interval_steps)
@@ -199,6 +203,9 @@ class AsyncRlBase(BaseRunner):
         n_itr = math.ceil(self.n_steps / self.log_interval_steps) * log_interval_itrs
         self.log_interval_itrs = log_interval_itrs
         self.n_itr = n_itr
+        # If we're transferring by timestep instead of iteration, round up to next iteration
+        if self.transfer_timestep:
+            self.transfer_iteration = int(-(-self.n_steps // self.itr_batch_size))  # Ceiling divide
         logger.log(f"Running {n_itr} sampler iterations.")
         return n_itr
 

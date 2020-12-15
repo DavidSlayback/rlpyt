@@ -44,6 +44,7 @@ class GymEnvWrapper(Wrapper):
             time_limit = isinstance(env_, TimeLimit)
         if time_limit:
             info["timeout"] = False  # gym's TimeLimit.truncated invalid name.
+        self.transfer = getattr(env_, "transfer", self.transfer)  # Check environment for a transfer function (or use default which does nothing)
         self._time_limit = time_limit
         self.action_space = GymSpaceWrapper(
             space=self.env.action_space,
@@ -80,6 +81,10 @@ class GymEnvWrapper(Wrapper):
     def reset(self):
         """Returns converted observation from gym env reset."""
         return self.observation_space.convert(self.env.reset())
+
+    def transfer(self, arg):
+        """Non-functioning environment transfer"""
+        return None
 
     @property
     def spaces(self):

@@ -3,6 +3,7 @@ import psutil
 import time
 import torch
 
+from rlpyt.samplers.collectors import DecorrelatingStartCollector
 from rlpyt.utils.collections import AttrDict
 from rlpyt.utils.logging import logger
 from rlpyt.utils.seed import set_seed, set_envs_seeds
@@ -81,11 +82,18 @@ def sampling_process(common_kwargs, worker_kwargs):
     else:
         eval_envs = list()
 
+    transfer = False  # Have we transferred yet?
     ctrl = c.ctrl
     ctrl.barrier_out.wait()
     while True:
         collector.reset_if_needed(agent_inputs)  # Outside barrier?
         ctrl.barrier_in.wait()
+        if ctrl.transfer.value and not transfer:
+            transfer = True  # Set transfer
+            arg = ctrl.transfer_arg.value
+            res = collector.transfer(arg)
+            if res is not None: agent_inputs, traj_infos = res  # If not None, it's a tuple from decorrelating start
+            for env in eval_envs: env.transfer(arg)  # Transfer eval environments (if they exist). Reset will be done regardless
         if ctrl.quit.value:
             break
         if ctrl.do_eval.value:

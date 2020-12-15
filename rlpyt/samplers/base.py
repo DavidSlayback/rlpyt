@@ -3,6 +3,7 @@
 from rlpyt.samplers.collections import BatchSpec, TrajInfo, Samples
 from rlpyt.utils.quick_args import save__init__args
 
+from rlpyt.samplers.collectors import DecorrelatingStartCollector
 
 class BaseSampler:
     """Class which interfaces with the Runner, in master process only.
@@ -37,7 +38,7 @@ class BaseSampler:
             eval_CollectorCls=None,  # Must supply if doing eval.
             eval_env_kwargs=None,
             eval_max_steps=None,  # int if using evaluation.
-            eval_max_trajectories=None,  # Optional earlier cutoff.
+            eval_max_trajectories=None  # Optional earlier cutoff.
             ):
         eval_max_steps = None if eval_max_steps is None else int(eval_max_steps)
         eval_max_trajectories = (None if eval_max_trajectories is None else
@@ -57,6 +58,10 @@ class BaseSampler:
 
     def evaluate_agent(self, itr):
         """Run offline agent evaluation, if applicable."""
+        raise NotImplementedError
+
+    def transfer(self, arg=0.):
+        """Transfer task in gym training and evaluation environments, if applicable"""
         raise NotImplementedError
 
     def shutdown(self):

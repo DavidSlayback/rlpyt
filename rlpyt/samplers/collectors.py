@@ -49,6 +49,16 @@ class BaseCollector:
         """Reset agent and or env as needed, if doing between batches."""
         pass
 
+    def transfer(self, arg=0.):
+        """Transfer goal for each environment. If environment returns None, it has no transfer"""
+        res = []
+        for env in self.envs:
+            res.append(env.transfer(arg))
+        if res[0] is None:
+            return None
+        else:
+            return [env.reset() for env in self.envs]
+
 
 class BaseEvalCollector:
     """Collectors for offline agent evalution; not to record intermediate samples."""
@@ -70,6 +80,16 @@ class BaseEvalCollector:
         """Run agent evaluation in environment and return completed trajectory
         infos."""
         raise NotImplementedError
+
+    def transfer(self, arg=0.):
+        """Transfer goal for each environment. If environment returns None, it has no transfer"""
+        res = []
+        for env in self.envs:
+            res.append(env.transfer(arg))
+        if res[0] is None:
+            return None
+        else:
+            return [env.reset() for env in self.envs]
 
 
 class DecorrelatingStartCollector(BaseCollector):
@@ -117,3 +137,14 @@ class DecorrelatingStartCollector(BaseCollector):
             self.step_buffer_np.action[:] = prev_action
             self.step_buffer_np.reward[:] = prev_reward
         return AgentInputs(observation, prev_action, prev_reward), traj_infos
+
+    def transfer(self, arg=0., max_decorrelation_steps=0):
+        """Transfer goal for each environment. If environment returns None, it has no transfer"""
+        res = []
+        for env in self.envs:
+            res.append(env.transfer(arg))
+        # If we actually do transfer, reset and restart (in this case, decorrelate as well)
+        if res[0] is None:
+            return None
+        else:
+            return self.start_envs(max_decorrelation_steps)

@@ -107,3 +107,9 @@ class SerialSampler(BaseSampler):
     def evaluate_agent(self, itr):
         """Call the evaluation collector to execute agent-environment interactions."""
         return self.eval_collector.collect_evaluation(itr)
+
+    def transfer(self, arg=0.):
+        res = self.collector.transfer(arg, self.max_decorrelation_steps)
+        if res is not None: self.agent_inputs, self.traj_infos = res
+        if hasattr(self, "eval_collector"): self.eval_collector.transfer(arg)
+        logger.log("Goal switched to " f"({arg})")

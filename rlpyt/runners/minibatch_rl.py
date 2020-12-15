@@ -26,6 +26,10 @@ class MinibatchRlBase(BaseRunner):
         seed (int): Random seed to use, if ``None`` will generate randomly.
         affinity (dict): Hardware component assignments for sampler and algorithm.
         log_interval_steps (int): Number of environment steps between logging to csv.
+        transfer(bool): Whether to transfer environment (e.g., change goal) during run
+        transfer_arg(float): Arg passed to environment's transfer method, may or may not affect transfer
+        transfer_iter(int): Iteration at which to perform transfer (before training on said iteration)
+        transfer_timestep(int): Override of transfer_iter. Transfer will occur at iteration immediately following timestep
     """
 
     _eval = False
@@ -39,6 +43,10 @@ class MinibatchRlBase(BaseRunner):
             seed=None,
             affinity=None,
             log_interval_steps=1e5,
+            transfer=False,  # Whether to transfer
+            transfer_arg=0.,  # Argument passed to transfer method
+            transfer_iter=150,  # Iteration of training at which to transfer
+            transfer_timestep=0,  # Overrides transfer_iter if not 0, timestep
             ):
         n_steps = int(n_steps)
         log_interval_steps = int(log_interval_steps)
@@ -117,6 +125,9 @@ class MinibatchRlBase(BaseRunner):
             n_itr += log_interval_itrs - (n_itr % log_interval_itrs)
         self.log_interval_itrs = log_interval_itrs
         self.n_itr = n_itr
+        # If we're transferring by timestep instead of iteration, round up to next iteration
+        if self.transfer_timestep:
+            self.transfer_iteration = int(-(-self.n_steps // self.itr_batch_size))  # Ceiling divide
         logger.log(f"Running {n_itr} iterations of minibatch RL.")
         return n_itr
 
@@ -253,6 +264,10 @@ class MinibatchRl(MinibatchRlBase):
         for itr in range(n_itr):
             logger.set_iteration(itr)
             with logger.prefix(f"itr #{itr} "):
+                if self.transfer and self.transfer_iter == itr:
+                    self.sampler.transfer(self.transfer_arg)  # Transfer if doing
+                    self._traj_infos.clear()  # Clear trajectory information
+                    self._transfer_start(itr, opt_info)
                 self.agent.sample_mode(itr)  # Might not be this agent sampling.
                 samples, traj_infos = self.sampler.obtain_samples(itr)
                 self.agent.train_mode(itr)
@@ -268,6 +283,14 @@ class MinibatchRl(MinibatchRlBase):
         logger.log(f"Optimizing over {self.log_interval_itrs} iterations.")
         super().initialize_logging()
         self.pbar = ProgBarCounter(self.log_interval_itrs)
+
+    # Helper function to refill queue. Sample until we have enough new trajectories
+    def _transfer_start(self, itr, prev_opt_info, n_traj=10):
+        self.agent.sample_mode(itr)
+        while len(self._traj_infos) < n_traj:
+            samples, traj_infos = self.sampler.obtain_samples(itr)
+            self.store_diagnostics(itr, traj_infos, prev_opt_info)
+
 
     def store_diagnostics(self, itr, traj_infos, opt_info):
         self._new_completed_trajs += len(traj_infos)
@@ -305,6 +328,8 @@ class MinibatchRlEval(MinibatchRlBase):
         for itr in range(n_itr):
             logger.set_iteration(itr)
             with logger.prefix(f"itr #{itr} "):
+                if self.transfer and self.transfer_iter == itr:
+                    self.sampler.transfer(self.transfer_arg)  # Transfer if doing
                 self.agent.sample_mode(itr)
                 samples, traj_infos = self.sampler.obtain_samples(itr)
                 self.agent.train_mode(itr)

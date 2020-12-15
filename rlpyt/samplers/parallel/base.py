@@ -144,6 +144,11 @@ class ParallelSamplerBase(BaseSampler):
         self.ctrl.do_eval.value = False
         return traj_infos
 
+    def transfer(self, arg=0.):
+        self.ctrl.transfer_arg.value = arg
+        self.ctrl.transfer.value = True
+        logger.log("Goal switched to " f"({arg})")
+
     def shutdown(self):
         self.ctrl.quit.value = True
         self.ctrl.barrier_in.wait()
@@ -189,6 +194,8 @@ class ParallelSamplerBase(BaseSampler):
             barrier_out=mp.Barrier(n_worker + 1),
             do_eval=mp.RawValue(ctypes.c_bool, False),
             itr=mp.RawValue(ctypes.c_long, 0),
+            transfer=mp.RawValue(ctypes.c_bool, False),
+            transfer_arg=mp.RawValue(ctypes.c_float, 0.)
         )
         self.traj_infos_queue = mp.Queue()
         self.eval_traj_infos_queue = mp.Queue()
