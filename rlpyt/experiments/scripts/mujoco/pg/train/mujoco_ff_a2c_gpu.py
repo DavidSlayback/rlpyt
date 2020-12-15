@@ -4,13 +4,13 @@ import sys
 from rlpyt.utils.launching.affinity import affinity_from_code
 from rlpyt.samplers.parallel.gpu.alternating_sampler import AlternatingSampler
 from rlpyt.envs.gym import make as gym_make
-from rlpyt.algos.pg.ppo import PPO
+from rlpyt.algos.pg.a2c import A2C
 from rlpyt.agents.pg.mujoco import MujocoFfAgent
 from rlpyt.runners.minibatch_rl import MinibatchRl
 from rlpyt.utils.logging.context import logger_context
 from rlpyt.utils.launching.variant import load_variant, update_config
 
-from rlpyt.experiments.configs.mujoco.pg.mujoco_ppo import configs
+from rlpyt.experiments.configs.mujoco.pg.mujoco_a2c import configs
 
 
 def build_and_train(slot_affinity_code, log_dir, run_ID, config_key):
@@ -24,7 +24,7 @@ def build_and_train(slot_affinity_code, log_dir, run_ID, config_key):
         env_kwargs=config["env"],
         **config["sampler"]
     )
-    algo = PPO(optim_kwargs=config["optim"], **config["algo"])
+    algo = A2C(optim_kwargs=config["optim"], **config["algo"])
     agent = MujocoFfAgent(model_kwargs=config["model"], **config["agent"])
     runner = MinibatchRl(
         algo=algo,

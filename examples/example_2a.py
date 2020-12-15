@@ -31,7 +31,7 @@ def build_and_train(env_id="HalfCheetah-Directional-v0", run_ID=0, cuda_idx=None
         eval_env_kwargs=dict(id=env_id),
         batch_T=8,  # One time-step per sampler iteration.
         batch_B=256,  # One environment (i.e. sampler Batch dimension).
-        max_decorrelation_steps=400,
+        max_decorrelation_steps=100,
         eval_n_envs=5,
         eval_max_steps=int(25e3),
         eval_max_trajectories=30
