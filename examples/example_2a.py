@@ -17,7 +17,7 @@ from rlpyt.algos.qpg.sac import SAC
 from rlpyt.agents.qpg.sac_agent import SacAgent
 from rlpyt.algos.pg.ppo import PPO
 from rlpyt.agents.pg.mujoco import MujocoFfAgent
-from rlpyt.runners.minibatch_rl import MinibatchRlEval
+from rlpyt.runners.minibatch_rl import MinibatchRlEval, MinibatchRl
 from rlpyt.utils.logging.context import logger_context
 from rlpyt.experiments.configs.mujoco.pg.mujoco_ppo import configs
 
@@ -49,9 +49,9 @@ def build_and_train(env_id="HalfCheetahPGym-v0", run_ID=0, cuda_idx=None, n_para
     #     eval_max_trajectories=5,
     # )
 
-    algo = PPO(clip_vf_loss=False, normalize_rewards='reward')  # Run with defaults.
+    algo = PPO(clip_vf_loss=False, normalize_rewards='return')  # Run with defaults.
     agent = MujocoFfAgent()
-    runner = MinibatchRlEval(
+    runner = MinibatchRl(
         algo=algo,
         agent=agent,
         sampler=sampler,
