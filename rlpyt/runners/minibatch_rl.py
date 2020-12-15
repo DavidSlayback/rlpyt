@@ -330,6 +330,8 @@ class MinibatchRlEval(MinibatchRlBase):
             with logger.prefix(f"itr #{itr} "):
                 if self.transfer and self.transfer_iter == itr:
                     self.sampler.transfer(self.transfer_arg)  # Transfer if doing
+                    eval_traj_infos, eval_time = self.evaluate_agent(itr)  # Eval
+                    self.log_diagnostics(itr, eval_traj_infos, eval_time)
                 self.agent.sample_mode(itr)
                 samples, traj_infos = self.sampler.obtain_samples(itr)
                 self.agent.train_mode(itr)
