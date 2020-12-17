@@ -2,7 +2,9 @@
 
 from rlpyt.agents.pg.gaussian import (GaussianPgAgent,
     RecurrentGaussianPgAgent, AlternatingRecurrentGaussianPgAgent)
+from rlpyt.agents.pg.oc import GaussianOCAgent, RecurrentGaussianOCAgent
 from rlpyt.models.pg.mujoco_ff_model import MujocoFfModel
+from rlpyt.models.pg.oc.mujoco_ff_model import MujocoOCFfModel, MujocoOCFfModel_NoPiOmega
 from rlpyt.models.pg.mujoco_lstm_model import MujocoLstmModel
 from rlpyt.utils.buffer import buffer_to
 
@@ -36,6 +38,10 @@ class MujocoMixin:
 class MujocoFfAgent(MujocoMixin, GaussianPgAgent):
 
     def __init__(self, ModelCls=MujocoFfModel, **kwargs):
+        super().__init__(ModelCls=ModelCls, **kwargs)
+
+class MujocoFfOcAgent(MujocoMixin, GaussianOCAgent):
+    def __init__(self, ModelCls=MujocoOCFfModel, **kwargs):
         super().__init__(ModelCls=ModelCls, **kwargs)
 
 

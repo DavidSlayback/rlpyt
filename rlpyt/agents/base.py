@@ -303,6 +303,70 @@ class RecurrentAgentMixin:
         self._prev_rnn_state = None
         super().eval_mode(itr)
 
+AgentInputsOC = namedarraytuple("AgentInputsOC",  # Training only.
+    ["observation", "prev_action", "prev_reward", "sampled_option"])
+
+class OCAgentMixin:
+    """
+    Mixin class to manage recurrent state during sampling (so the sampler
+    remains agnostic).  To be used like ``class
+    MyRecurrentAgent(RecurrentAgentMixin, MyAgent):``.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._prev_option = None
+        self._sample_prev_option = None  # Store during eval.
+
+    def reset(self):
+        """Sets the previous option to ``None``"""
+        self._prev_option = None
+
+    def reset_one(self, idx):
+        """Sets the previous option corresponding to one environment instance
+        to -1.  Assumes prev_option is in cudnn-compatible shape: [B],
+        where B corresponds to environment index."""
+        if self._prev_option is not None:
+            self._prev_option[idx] = -1  # Automatic recursion in namedarraytuple.
+
+    def sample_option(self, terminations, option_dist):
+        """Sample options according to which previous options are terminated and probability over options"""
+        if self._prev_option is None:  # No previous option, all at random to start
+            self._prev_option = torch.randint_like(terminations, option_dist.dim).long()
+        options = self._prev_option.clone()
+        new_o = option_dist.sample()
+        new_o_idx = torch.logical_or(terminations, self._prev_option == -1)
+        options[new_o_idx] = new_o[new_o_idx]
+        return options
+
+    def advance_oc_state(self, new_option):
+        """Sets the previous option to the newly computed one (i.e. option-critic agents should
+        call this at the end of their ``step()``). """
+        self._prev_option = new_option
+
+    @property
+    def prev_option(self):
+        return self._prev_option
+
+    def train_mode(self, itr):
+        """If coming from sample mode, store the previous option elsewhere and clear it."""
+        if self._mode == "sample":
+            self._sample_prev_option = self._prev_option
+        self._prev_option = None
+        super().train_mode(itr)
+
+    def sample_mode(self, itr):
+        """If coming from non-sample modes, restore the last sample-mode rnn state."""
+        if self._mode != "sample":
+            self._prev_option = self._sample_prev_option
+        super().sample_mode(itr)
+
+    def eval_mode(self, itr):
+        """If coming from sample mode, store the rnn state elsewhere and clear it."""
+        if self._mode == "sample":
+            self._sample_prev_option = self._prev_option
+        self._prev_option = None
+        super().eval_mode(itr)
 
 class AlternatingRecurrentAgentMixin:
     """

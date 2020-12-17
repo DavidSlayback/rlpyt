@@ -2,13 +2,14 @@ import numpy as np
 import torch
 
 from rlpyt.agents.base import (AgentStep, BaseAgent, RecurrentAgentMixin,
-    AlternatingRecurrentAgentMixin)
-from rlpyt.agents.pg.base import AgentInfo, AgentInfoRnn, OCAgentInfo
+    AlternatingRecurrentAgentMixin, OCAgentMixin)
+from rlpyt.agents.pg.base import AgentInfo, AgentInfoRnn, AgentInfoOC
 from rlpyt.distributions.gaussian import Gaussian, DistInfoStd
 from rlpyt.distributions.categorical import Categorical, DistInfo
 from rlpyt.utils.buffer import buffer_to, buffer_func, buffer_method
+from rlpyt.utils.tensor import select_at_indexes
 
-class GaussianOCAgent(BaseAgent):
+class GaussianOCAgent(OCAgentMixin, BaseAgent):
     """
     Agent for option-critic algorithm using Gaussian action distribution.
     """
@@ -18,6 +19,7 @@ class GaussianOCAgent(BaseAgent):
         model_inputs = buffer_to((observation, prev_action, prev_reward),
             device=self.device)
         mu, log_std, q, beta, pi = self.model(*model_inputs)
+        # Need gradients from intra-option (DistInfoStd), q_o (q), termination (beta), and pi_omega (DistInfo)
         return buffer_to((DistInfoStd(mean=mu, log_std=log_std), q, beta, DistInfo(prob=pi)), device="cpu")
 
     def initialize(self, env_spaces, share_memory=False,
@@ -40,22 +42,23 @@ class GaussianOCAgent(BaseAgent):
     @torch.no_grad()
     def step(self, observation, prev_action, prev_reward):
         """
-        Compute policy's action distribution from inputs, and sample an
-        action. Calls the model to produce mean, log_std, and value estimate.
+        Compute policy's option and action distributions from inputs.
+        Calls model to get mean, std for all pi_w, q, beta for all options, pi over options
         Moves inputs to device and returns outputs back to CPU, for the
         sampler.  (no grad)
         """
         model_inputs = buffer_to((observation, prev_action, prev_reward),
             device=self.device)
         mu, log_std, q, beta, pi = self.model(*model_inputs)
+        terminations = torch.bernoulli(beta).long()  # Sample terminations
         dist_info_omega = DistInfo(prob=pi)
-        option = self.distribution_omega.sample(dist_info_omega)
-        # Need to subselect mu, log_std for each option
-        # Therefore, need to know option after option selection process
+        new_o = self.sample_option(terminations, dist_info_omega)
         dist_info = DistInfoStd(mean=mu, log_std=log_std)
-        action = self.distribution.sample(dist_info)
-        agent_info = AgentInfo(dist_info=dist_info, value=value)
+        dist_info_o = DistInfoStd(mean=select_at_indexes(new_o, mu), log_std=select_at_indexes(new_o, log_std))
+        action = self.distribution.sample(dist_info_o)
+        agent_info = AgentInfoOC(dist_info=dist_info, q=q, termination=terminations, inter_option_dist_info=dist_info_omega, prev_o=self._prev_option, o=new_o)
         action, agent_info = buffer_to((action, agent_info), device="cpu")
+        self.advance_oc_state(new_o)
         return AgentStep(action=action, agent_info=agent_info)
 
     @torch.no_grad()
@@ -66,8 +69,8 @@ class GaussianOCAgent(BaseAgent):
         """
         model_inputs = buffer_to((observation, prev_action, prev_reward),
             device=self.device)
-        _mu, _log_std, q, beta, pi = self.model(*model_inputs)
-        value = q * pi  # Weight q value by probability of option
+        _mu, _log_std, q, _beta, pi = self.model(*model_inputs)
+        value = q * pi  # Weight q value by probability of option. Do I need to consider termination as well?
         return value.to("cpu")
 
 
