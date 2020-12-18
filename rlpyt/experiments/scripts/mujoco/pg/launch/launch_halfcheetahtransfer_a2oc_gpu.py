@@ -4,7 +4,6 @@ from rlpyt.utils.launching.exp_launcher import run_experiments
 from rlpyt.utils.launching.variant import make_variants, VariantLevel
 
 path = pathlib.Path(__file__).resolve().parent.parent / 'train' / "mujoco_ff_a2oc_gpu.py"
-
 script = path.as_posix()
 # script = "rlpyt/experiments/scripts/mujoco/pg/train/mujoco_ff_a2c_gpu.py"
 affinity_code = encode_affinity(
@@ -20,6 +19,7 @@ experiment_title = "A2OC_Transfer"
 variant_levels = list()
 
 lrs = [3e-5, 1e-4, 3e-4]
+delib=[0., 1e-1, 1]
 values = list(zip(lrs))
 dir_names = ["A2OC_lr_{}".format(*v) for v in values]
 keys = [("algo", "learning_rate")]

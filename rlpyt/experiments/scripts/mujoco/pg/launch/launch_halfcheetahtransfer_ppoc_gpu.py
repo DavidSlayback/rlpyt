@@ -5,7 +5,6 @@ from rlpyt.utils.launching.variant import make_variants, VariantLevel
 import pathlib
 
 path = pathlib.Path(__file__).resolve().parent.parent / 'train' / "mujoco_ff_ppoc_gpu.py"
-
 script = path.as_posix()
 # script = "rlpyt/experiments/scripts/mujoco/pg/train/mujoco_ff_ppo_gpu.py"
 affinity_code = encode_affinity(

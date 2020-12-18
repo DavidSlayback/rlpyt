@@ -4,7 +4,6 @@ from rlpyt.utils.launching.exp_launcher import run_experiments
 from rlpyt.utils.launching.variant import make_variants, VariantLevel
 
 path = pathlib.Path(__file__).resolve().parent.parent / 'train' / "mujoco_ff_a2c_gpu.py"
-
 script = path.as_posix()
 # script = "rlpyt/experiments/scripts/mujoco/pg/train/mujoco_ff_a2c_gpu.py"
 affinity_code = encode_affinity(
@@ -14,23 +13,16 @@ affinity_code = encode_affinity(
     n_socket=1,
     alternating=True
 )
-runs_per_setting = 1
+runs_per_setting = 6
 default_config_key = "a2c_1M_halfcheetahtransfer"
 experiment_title = "A2C_Transfer"
 variant_levels = list()
 
 lrs = [3e-5, 1e-4, 3e-4]
-seeds = [1,2,3,4,5,6]
 values = list(zip(lrs))
 dir_names = ["A2C_lr_{}".format(*v) for v in values]
 keys = [("algo", "learning_rate")]
 variant_levels.append(VariantLevel(keys, values, dir_names))
-
-values = list(zip(seeds))
-dir_names = ["seed_{}".format(*v) for v in values]
-keys = [("runner", "seed")]
-variant_levels.append(VariantLevel(keys, values, dir_names))
-
 
 variants, log_dirs = make_variants(*variant_levels)
 
