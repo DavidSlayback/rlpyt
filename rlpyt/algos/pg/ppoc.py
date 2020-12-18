@@ -150,15 +150,15 @@ class PPOC(OCAlgo):
             # [B,N,H] --> [N,B,H] (for cudnn).
             init_rnn_state = buffer_method(init_rnn_state, "transpose", 0, 1)
             init_rnn_state = buffer_method(init_rnn_state, "contiguous")
-            dist_info, q, beta, dist_info_omega, _rnn_state = self.agent(*agent_inputs, init_rnn_state)
+            dist_info_o, q, beta, dist_info_omega, _rnn_state = self.agent(*agent_inputs, init_rnn_state)
         else:
-            dist_info, q, beta, dist_info_omega = self.agent(*agent_inputs)
+            dist_info_o, q, beta, dist_info_omega = self.agent(*agent_inputs)
         dist = self.agent.distribution
         dist_omega = self.agent.distribution_omega
 
         # Surrogate policy loss
         ratio = dist.likelihood_ratio(action, old_dist_info=old_dist_info_o,
-            new_dist_info=dist_info)
+            new_dist_info=dist_info_o)
         surr_1 = ratio * advantage
         clipped_ratio = torch.clamp(ratio, 1. - self.ratio_clip,
             1. + self.ratio_clip)
@@ -198,7 +198,7 @@ class PPOC(OCAlgo):
             logli = dist_omega.log_likelihood(o, dist_info_omega)
             pi_omega_loss = - valid_mean(logli * advantage, valid)
 
-        entropy = dist.mean_entropy(dist_info, valid)
+        entropy = dist.mean_entropy(dist_info_o, valid)
         entropy_loss = - self.entropy_loss_coeff * entropy
         entropy_o = dist_omega.mean_entropy(dist_info_omega, valid)
         entropy_loss_omega = - self.omega_entropy_loss_coeff * entropy_o

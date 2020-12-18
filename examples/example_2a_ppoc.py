@@ -12,6 +12,7 @@ example.
 
 from rlpyt.samplers.serial.sampler import SerialSampler
 from rlpyt.samplers.parallel.gpu.alternating_sampler import AlternatingSampler
+from rlpyt.samplers.parallel.gpu.sampler import GpuSampler
 from rlpyt.envs.gym import make as gym_make
 from rlpyt.algos.pg.ppo import PPO
 from rlpyt.agents.pg.mujoco import MujocoFfAgent
@@ -25,6 +26,19 @@ from rlpyt.experiments.configs.mujoco.pg.mujoco_ppo import configs
 def build_and_train(env_id="HalfCheetah-Directional-v0", run_ID=0, cuda_idx=None, n_parallel=6):
     affinity = dict(cuda_idx=cuda_idx, workers_cpus=list(range(n_parallel)), alternating=True)
 
+    # sampler = GpuSampler(
+    #     EnvCls=gym_make,
+    #     env_kwargs=dict(id=env_id),
+    #     eval_env_kwargs=dict(id=env_id),
+    #     batch_T=8,  # One time-step per sampler iteration.
+    #     batch_B=256,  # One environment (i.e. sampler Batch dimension).
+    #     max_decorrelation_steps=100,
+    #     eval_n_envs=5,
+    #     eval_max_steps=int(25e3),
+    #     eval_max_trajectories=30
+    # )
+    # agent = MujocoFfOcAgent(model_kwargs={'option_size': 2})
+
     # sampler = AlternatingSampler(
     #     EnvCls=gym_make,
     #     env_kwargs=dict(id=env_id),
@@ -36,21 +50,22 @@ def build_and_train(env_id="HalfCheetah-Directional-v0", run_ID=0, cuda_idx=None
     #     eval_max_steps=int(25e3),
     #     eval_max_trajectories=30
     # )
+    # agent = AlternatingMujocoFfOcAgent(model_kwargs={'option_size': 2})
 
-    sampler = SerialSampler(
-        EnvCls=gym_make,
-        env_kwargs=dict(id=env_id),
-        eval_env_kwargs=dict(id=env_id),
-        batch_T=256,  # One time-step per sampler iteration.
-        batch_B=8,  # One environment (i.e. sampler Batch dimension).
-        max_decorrelation_steps=0,
-        # eval_n_envs=2,
-        # eval_max_steps=int(51e2),
-        # eval_max_trajectories=5,
-    )
+    # sampler = SerialSampler(
+    #     EnvCls=gym_make,
+    #     env_kwargs=dict(id=env_id),
+    #     eval_env_kwargs=dict(id=env_id),
+    #     batch_T=256,  # One time-step per sampler iteration.
+    #     batch_B=8,  # One environment (i.e. sampler Batch dimension).
+    #     max_decorrelation_steps=0,
+    #     # eval_n_envs=2,
+    #     # eval_max_steps=int(51e2),
+    #     # eval_max_trajectories=5,
+    # )
+    # agent = MujocoFfOcAgent(model_kwargs={'option_size': 2})
 
     algo = PPOC(clip_vf_loss=False, normalize_rewards='return')  # Run with defaults.
-    agent = MujocoFfOcAgent(model_kwargs={'option_size':2})
     runner = MinibatchRl(
         algo=algo,
         agent=agent,

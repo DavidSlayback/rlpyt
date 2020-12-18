@@ -101,7 +101,7 @@ class PPO(PolicyGradientAlgo):
                 self.optimizer.zero_grad()
                 rnn_state = init_rnn_state[B_idxs] if recurrent else None
                 # NOTE: if not recurrent, will lose leading T dim, should be OK.
-                loss, entropy, perplexity = self.loss(
+                loss, pi_loss, value_loss, entropy, perplexity = self.loss(
                     *loss_inputs[T_idxs, B_idxs], rnn_state)
                 loss.backward()
                 grad_norm = torch.nn.utils.clip_grad_norm_(
@@ -109,6 +109,8 @@ class PPO(PolicyGradientAlgo):
                 self.optimizer.step()
 
                 opt_info.loss.append(loss.item())
+                opt_info.pi_loss.append(pi_loss.item())
+                opt_info.value_loss.append(value_loss.item())
                 opt_info.gradNorm.append(grad_norm.clone().detach().item())  # backwards compatible
                 opt_info.entropy.append(entropy.item())
                 opt_info.perplexity.append(perplexity.item())
@@ -165,4 +167,4 @@ class PPO(PolicyGradientAlgo):
         loss = pi_loss + value_loss + entropy_loss
 
         perplexity = dist.mean_perplexity(dist_info, valid)
-        return loss, entropy, perplexity
+        return loss, pi_loss, value_loss, entropy, perplexity

@@ -49,13 +49,15 @@ class A2C(PolicyGradientAlgo):
             # NOTE: suboptimal--obs sent to device here and in agent(*inputs).
             self.agent.update_obs_rms(samples.env.observation)
         self.optimizer.zero_grad()
-        loss, entropy, perplexity = self.loss(samples)
+        loss, pi_loss, value_loss, entropy, perplexity = self.loss(samples)
         loss.backward()
         grad_norm = torch.nn.utils.clip_grad_norm_(
             self.agent.parameters(), self.clip_grad_norm)
         self.optimizer.step()
         opt_info = OptInfo(
             loss=loss.item(),
+            pi_loss=pi_loss.item(),
+            value_loss=value_loss.item(),
             gradNorm=torch.tensor(grad_norm).item(),  # backwards compatible,
             entropy=entropy.item(),
             perplexity=perplexity.item(),
@@ -103,4 +105,4 @@ class A2C(PolicyGradientAlgo):
 
         perplexity = dist.mean_perplexity(dist_info, valid)
 
-        return loss, entropy, perplexity
+        return loss, pi_loss, value_loss, entropy, perplexity

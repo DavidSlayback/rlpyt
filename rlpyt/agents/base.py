@@ -424,6 +424,14 @@ class AlternatingRecurrentAgentMixin:
         self._alt = 0
         # Leave _sample_rnn_state_pair alone.
 
+    def reset_one(self, idx):
+        """Sets the recurrent state corresponding to one environment instance
+        to zero.  Assumes rnn state is in cudnn-compatible shape: [N,B,H],
+        where B corresponds to environment index."""
+        if self._prev_rnn_state is not None:
+            self._prev_rnn_state[:, idx] = 0  # Automatic recursion in namedarraytuple.
+
+
     def advance_rnn_state(self, new_rnn_state):
         """To be called inside agent.step()."""
         self._prev_rnn_state_pair[self._alt] = new_rnn_state
@@ -498,6 +506,16 @@ class AlternatingOCAgentMixin:
         self._alt = 0
         self._alt_o = 0
         # Leave _sample_rnn_state_pair alone.
+
+    def reset_one(self, idx):
+        """Sets the previous option corresponding to one environment instance
+        to -1.  Assumes prev_option is in cudnn-compatible shape: [B],
+        where B corresponds to environment index."""
+        if self._prev_option is not None:
+            self._prev_option[idx] = -1  # Automatic recursion in namedarraytuple.
+        if self._prev_rnn_state is not None:
+            self._prev_rnn_state[:, idx] = 0  # Automatic recursion in namedarraytuple.
+
 
     def advance_rnn_state(self, new_rnn_state):
         """To be called inside agent.step()."""
