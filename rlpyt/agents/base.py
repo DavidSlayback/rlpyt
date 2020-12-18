@@ -339,15 +339,15 @@ class OCAgentMixin:
 
     def sample_option(self, betas, option_dist_info):
         """Sample options according to which previous options are terminated and probability over options"""
-        betas = betas.view(-1, self.n_opt)
+        # betas = betas.view(-1, self.n_opt)
         if self._prev_option is None:  # No previous option, store as -1
-            self._prev_option = torch.full_like(betas[:, 0], -1,dtype=torch.long).squeeze()
-        terminations = select_at_indexes(self._prev_option, torch.bernoulli(betas).bool().squeeze())
+            self._prev_option = torch.full(betas.size()[:-1], -1,dtype=torch.long, device=betas.device)
+        terminations = select_at_indexes(self._prev_option, torch.bernoulli(betas).bool())
         options = self._prev_option.clone()
         new_o = self.distribution_omega.sample(option_dist_info).expand_as(self._prev_option)
         options[self._prev_option == -1] = new_o[self._prev_option == -1]  # Must terminate, episode reset
         mask = self._prev_option != -1
-        options[mask] = torch.where(terminations[torch.nonzero(mask).flatten()].flatten(), new_o[mask], self._prev_option[mask])
+        options[mask] = torch.where(terminations.view(-1)[mask].flatten(), new_o[mask], self._prev_option[mask])
         return options, terminations
 
     def advance_oc_state(self, new_option):
@@ -510,16 +510,18 @@ class AlternatingOCAgentMixin:
         self._alt_o ^= 1
         self._prev_option = self._prev_option_pair[self._alt_o]
 
-    def sample_option(self, terminations, option_dist_info):
+    def sample_option(self, betas, option_dist_info):
         """Sample options according to which previous options are terminated and probability over options"""
-        terminations = terminations.view(-1, self.n_opt)
+        # betas = betas.view(-1, self.n_opt)
         if self._prev_option is None:  # No previous option, store as -1
-            self._prev_option = torch.full_like(terminations[:,0], -1).long()
+            self._prev_option = torch.full(betas.size()[:-1], -1,dtype=torch.long, device=betas.device)
+        terminations = select_at_indexes(self._prev_option, torch.bernoulli(betas).bool())
         options = self._prev_option.clone()
-        new_o = self.distribution_omega.sample(option_dist_info)
-        new_o_idx = torch.logical_or(terminations, self._prev_option == -1)
-        options[new_o_idx] = new_o[new_o_idx]
-        return options
+        new_o = self.distribution_omega.sample(option_dist_info).expand_as(self._prev_option)
+        options[self._prev_option == -1] = new_o[self._prev_option == -1]  # Must terminate, episode reset
+        mask = self._prev_option != -1
+        options[mask] = torch.where(terminations.view(-1)[mask].flatten(), new_o[mask], self._prev_option[mask])
+        return options, terminations
 
     @property
     def prev_rnn_state(self):
