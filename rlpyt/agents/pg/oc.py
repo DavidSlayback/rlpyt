@@ -13,13 +13,14 @@ class GaussianOCAgentBase(BaseAgent):
     Agent for option-critic algorithm using Gaussian action distribution.
     """
 
-    def __call__(self, observation, prev_action, prev_reward):
-        """Performs forward pass on training data, for algorithm."""
-        model_inputs = buffer_to((observation, prev_action, prev_reward),
-            device=self.device)
-        mu, log_std, q, beta, pi = self.model(*model_inputs)
+    def __call__(self, observation, prev_action, prev_reward, sampled_option):
+        """Performs forward pass on training data, for algorithm. Returns sampled distinfo, q, beta, and piomega distinfo"""
+        model_inputs = buffer_to((observation, prev_action, prev_reward, sampled_option), device=self.device)
+        mu, log_std, q, beta, pi = self.model(*model_inputs[:-1])
         # Need gradients from intra-option (DistInfoStd), q_o (q), termination (beta), and pi_omega (DistInfo)
-        return buffer_to((DistInfoStd(mean=mu, log_std=log_std), q, beta, DistInfo(prob=pi)), device="cpu")
+        return buffer_to((DistInfoStd(mean=select_at_indexes(sampled_option, mu),
+                                      log_std=select_at_indexes(sampled_option,
+                                                                log_std)), q, beta, DistInfo(prob=pi)), device="cpu")
 
     def initialize(self, env_spaces, share_memory=False,
             global_B=1, env_ranks=None):
@@ -54,7 +55,9 @@ class GaussianOCAgentBase(BaseAgent):
         dist_info = DistInfoStd(mean=mu, log_std=log_std)
         dist_info_o = DistInfoStd(mean=select_at_indexes(new_o, mu), log_std=select_at_indexes(new_o, log_std))
         action = self.distribution.sample(dist_info_o)
-        agent_info = AgentInfoOC(dist_info=dist_info, q=q, value=select_at_indexes(new_o, q), termination=terminations, inter_option_dist_info=dist_info_omega, prev_o=self._prev_option, o=new_o)
+        agent_info = AgentInfoOC(dist_info=dist_info, dist_info_o=dist_info_o, q=q, value=(pi * q).sum(-1),
+                                 termination=terminations, dist_info_omega=dist_info_omega, prev_o=self._prev_option,
+                                 o=new_o)
         action, agent_info = buffer_to((action, agent_info), device="cpu")
         self.advance_oc_state(new_o)
         return AgentStep(action=action, agent_info=agent_info)
@@ -72,7 +75,7 @@ class GaussianOCAgentBase(BaseAgent):
         model_inputs = buffer_to((observation, prev_action, prev_reward),
             device=self.device)
         _mu, _log_std, q, beta, pi = self.model(*model_inputs)  # [B, nOpt]
-        v = (q * pi).mean(-1)  # Weight q value by probability of option. Average value if terminal
+        v = (q * pi).sum(-1)  # Weight q value by probability of option. Average value if terminal
         q_prev_o = select_at_indexes(self.prev_option, q)
         beta_prev_o = select_at_indexes(self.prev_option, beta)
         value = q_prev_o * (1 - beta_prev_o) + v * beta_prev_o
@@ -89,15 +92,17 @@ class AlternatingGaussianOCAgent(AlternatingOCAgentMixin, GaussianOCAgentBase):
 
 class RecurrentGaussianOCAgentBase(BaseAgent):
 
-    def __call__(self, observation, prev_action, prev_reward, init_rnn_state):
+    def __call__(self, observation, prev_action, prev_reward, sampled_option, init_rnn_state):
         """Performs forward pass on training data, for algorithm (requires
-        recurrent state input)."""
+        recurrent state input). Returnssampled distinfo, q, beta, and piomega distinfo"""
         # Assume init_rnn_state already shaped: [N,B,H]
-        model_inputs = buffer_to((observation, prev_action, prev_reward,
-            init_rnn_state), device=self.device)
-        mu, log_std, q, beta, pi, next_rnn_state = self.model(*model_inputs)
+        model_inputs = buffer_to((observation, prev_action, prev_reward, init_rnn_state, sampled_option), device=self.device)
+        mu, log_std, q, beta, pi, next_rnn_state = self.model(*model_inputs[:-1])
         # Need gradients from intra-option (DistInfoStd), q_o (q), termination (beta), and pi_omega (DistInfo)
-        dist_info, q, beta, dist_info_omega = buffer_to((DistInfoStd(mean=mu, log_std=log_std), q, beta, DistInfo(prob=pi)), device="cpu")
+        dist_info, q, beta, dist_info_omega = buffer_to((DistInfoStd(mean=select_at_indexes(sampled_option, mu),
+                                                                     log_std=select_at_indexes(sampled_option,
+                                                                                               log_std)), q, beta,
+                                                         DistInfo(prob=pi)), device="cpu")
         return dist_info, q, beta, dist_info_omega, next_rnn_state  # Leave rnn_state on device.
 
     def initialize(self, env_spaces, share_memory=False,
@@ -136,7 +141,9 @@ class RecurrentGaussianOCAgentBase(BaseAgent):
         # Transpose the rnn_state from [N,B,H] --> [B,N,H] for storage.
         # (Special case: model should always leave B dimension in.)
         prev_rnn_state = buffer_method(prev_rnn_state, "transpose", 0, 1)
-        agent_info = AgentInfoOCRnn(dist_info=dist_info, q=q, value=select_at_indexes(new_o, q),termination=terminations, inter_option_dist_info=dist_info_omega, prev_o=self._prev_option, o=new_o, prev_rnn_state=prev_rnn_state)
+        agent_info = AgentInfoOCRnn(dist_info=dist_info, dist_info_o=dist_info_o, q=q, value=(pi * q).sum(-1),
+                                    termination=terminations, inter_option_dist_info=dist_info_omega,
+                                    prev_o=self._prev_option, o=new_o, prev_rnn_state=prev_rnn_state)
         action, agent_info = buffer_to((action, agent_info), device="cpu")
         self.advance_rnn_state(rnn_state)  # Keep on device.
         self.advance_oc_state(new_o)
@@ -156,7 +163,7 @@ class RecurrentGaussianOCAgentBase(BaseAgent):
         agent_inputs = buffer_to((observation, prev_action, prev_reward),
             device=self.device)
         _mu, _log_std, q, beta, pi, _rnn_state = self.model(*agent_inputs, self.prev_rnn_state)
-        v = (q * pi).mean(-1)  # Weight q value by probability of option. Average value if terminal
+        v = (q * pi).sum(-1)  # Weight q value by probability of option. Average value if terminal
         q_prev_o = select_at_indexes(self.prev_option, q)
         beta_prev_o = select_at_indexes(self.prev_option, beta)
         value = q_prev_o * (1 - beta_prev_o) + v * beta_prev_o

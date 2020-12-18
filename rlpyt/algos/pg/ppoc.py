@@ -2,15 +2,16 @@
 import torch
 
 from rlpyt.algos.pg.base import PolicyGradientAlgo, OptInfo, OCAlgo, OptInfoOC
-from rlpyt.agents.base import AgentInputs, AgentInputsRnn
-from rlpyt.utils.tensor import valid_mean
+from rlpyt.agents.base import AgentInputs, AgentInputsRnn, AgentInputsOC, AgentInputsOCRnn
+from rlpyt.utils.tensor import valid_mean,select_at_indexes
 from rlpyt.utils.quick_args import save__init__args
 from rlpyt.utils.buffer import buffer_to, buffer_method
 from rlpyt.utils.collections import namedarraytuple
 from rlpyt.utils.misc import iterate_mb_idxs
 
 LossInputs = namedarraytuple("LossInputs",
-    ["agent_inputs", "action", "return_", "advantage", "valid", "old_dist_info", "old_value"])
+    ["agent_inputs", "action", "option", "prev_option", "return_", "advantage", "termination_advantage",
+     "valid", "not_init_states", "old_dist_info_o", "old_dist_info_omega", "old_q"])
 
 
 class PPOC(OCAlgo):
@@ -26,7 +27,7 @@ class PPOC(OCAlgo):
             discount=0.99,
             learning_rate=0.001,
             value_loss_coeff=0.5,
-            term_loss_coeff=1.,  # Coefficient for termination loss component
+            termination_loss_coeff=1.,  # Coefficient for termination loss component
             entropy_loss_coeff=0.01,  # Entropy loss for low-level policy
             omega_entropy_loss_coeff=0.01,  # Entropy loss for policy over options
             delib_cost=0.,  # Cost for switching options. Subtracted from rewards after normalization...Also added to termination advantage
@@ -42,6 +43,8 @@ class PPOC(OCAlgo):
             normalize_advantage=False,
             normalize_termination_advantage=False,  # Normalize termination advantage? Doesn't seem to be done
             clip_vf_loss=False,  # Clip VF_loss as in OpenAI?
+            clip_pi_omega_loss=False,  # Clip policy over option loss in a similar way to PPO? Not done by others
+            clip_beta_loss=False,
             normalize_rewards='return',  # Can be 'return' (OpenAI, no mean subtraction), 'reward' (same as obs normalization) or None
             rew_clip=(-10, 10),  # Additional clipping for reward
             rew_min_var=1e-6  # Minimum variance in running mean for reward
@@ -72,10 +75,11 @@ class PPOC(OCAlgo):
         formed within device, without further data transfer.
         """
         recurrent = self.agent.recurrent
-        agent_inputs = AgentInputs(  # Move inputs to device once, index there.
+        agent_inputs = AgentInputsOC(  # Move inputs to device once, index there.
             observation=samples.env.observation,
             prev_action=samples.agent.prev_action,
             prev_reward=samples.env.prev_reward,
+            sampled_option=samples.agent.agent_info.o,
         )
         agent_inputs = buffer_to(agent_inputs, device=self.agent.device)
         if hasattr(self.agent, "update_obs_rms"):
@@ -84,11 +88,16 @@ class PPOC(OCAlgo):
         loss_inputs = LossInputs(  # So can slice all.
             agent_inputs=agent_inputs,
             action=samples.agent.action,
+            option=samples.agent.agent_info.o,
+            prev_option=samples.agent.agent_info.prev_o,
             return_=return_,
             advantage=advantage,
+            termination_advantage=beta_adv,
             valid=valid,
-            old_dist_info=samples.agent.agent_info.dist_info,
-            old_value=samples.agent.agent_info.value
+            not_init_states=not_init_states,
+            old_dist_info_o=samples.agent.agent_info.dist_info_o,
+            old_dist_info_omega=samples.agent.agent_info.dist_info_omega,
+            old_q=samples.agent.agent_info.q
         )
         if recurrent:
             # Leave in [B,N,H] for slicing to minibatches.
@@ -105,17 +114,21 @@ class PPOC(OCAlgo):
                 self.optimizer.zero_grad()
                 rnn_state = init_rnn_state[B_idxs] if recurrent else None
                 # NOTE: if not recurrent, will lose leading T dim, should be OK.
-                loss, entropy, perplexity = self.loss(
+                loss, pi_loss, value_loss, beta_loss, pi_omega_loss, entropy, entropy_o = self.loss(
                     *loss_inputs[T_idxs, B_idxs], rnn_state)
                 loss.backward()
                 grad_norm = torch.nn.utils.clip_grad_norm_(
                     self.agent.parameters(), self.clip_grad_norm)
                 self.optimizer.step()
-
+                # OptInfoOC = namedtuple("OptInfo", ["loss", "pi_loss", "q_loss", "beta_loss", "pi_omega_loss", "gradNorm", "entropy", "pi_omega_entropy"])
                 opt_info.loss.append(loss.item())
+                opt_info.pi_loss.append(pi_loss.item())
+                opt_info.q_loss.append(value_loss.item())
+                opt_info.beta_loss.append(beta_loss.item())
+                opt_info.pi_omega_loss.append(pi_omega_loss.item())
                 opt_info.gradNorm.append(grad_norm.clone().detach().item())  # backwards compatible
                 opt_info.entropy.append(entropy.item())
-                opt_info.perplexity.append(perplexity.item())
+                opt_info.pi_omega_entropy.append(entropy_o.item())
                 self.update_counter += 1
         if self.linear_lr_schedule:
             self.lr_scheduler.step()
@@ -123,8 +136,8 @@ class PPOC(OCAlgo):
 
         return opt_info
 
-    def loss(self, agent_inputs, action, return_, advantage, valid, old_dist_info, old_value,
-            init_rnn_state=None):
+    def loss(self, agent_inputs, action, o, prev_o, return_, advantage, beta_adv, valid, not_init_states, old_dist_info_o,
+             old_dist_info_omega, old_q, init_rnn_state=None):
         """
         Compute the training loss: policy_loss + value_loss + entropy_loss
         Policy loss: min(likelhood-ratio * advantage, clip(likelihood_ratio, 1-eps, 1+eps) * advantage)
@@ -137,14 +150,14 @@ class PPOC(OCAlgo):
             # [B,N,H] --> [N,B,H] (for cudnn).
             init_rnn_state = buffer_method(init_rnn_state, "transpose", 0, 1)
             init_rnn_state = buffer_method(init_rnn_state, "contiguous")
-            dist_info, value, _rnn_state = self.agent(*agent_inputs, init_rnn_state)
+            dist_info, q, beta, dist_info_omega, _rnn_state = self.agent(*agent_inputs, init_rnn_state)
         else:
-            dist_info, value = self.agent(*agent_inputs)
+            dist_info, q, beta, dist_info_omega = self.agent(*agent_inputs)
         dist = self.agent.distribution
         dist_omega = self.agent.distribution_omega
 
         # Surrogate policy loss
-        ratio = dist.likelihood_ratio(action, old_dist_info=old_dist_info,
+        ratio = dist.likelihood_ratio(action, old_dist_info=old_dist_info_o,
             new_dist_info=dist_info)
         surr_1 = ratio * advantage
         clipped_ratio = torch.clamp(ratio, 1. - self.ratio_clip,
@@ -154,20 +167,43 @@ class PPOC(OCAlgo):
         pi_loss = - valid_mean(surrogate, valid)
 
         # Surrogate value loss (if doing)
+        q_o = select_at_indexes(o, q)
+        old_q_o = select_at_indexes(o, old_q)
         if self.clip_vf_loss:
-            v_loss_unclipped = (value - return_) ** 2
-            v_clipped = old_value + torch.clamp(value - old_value, -self.ratio_clip, self.ratio_clip)
+            v_loss_unclipped = (q_o - return_) ** 2
+            v_clipped = old_q_o + torch.clamp(q_o - old_q_o, -self.ratio_clip, self.ratio_clip)
             v_loss_clipped = (v_clipped - return_) ** 2
             v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
             value_error = 0.5 * v_loss_max.mean()
         else:
-            value_error = 0.5 * (value - return_) ** 2
+            value_error = 0.5 * (q_o - return_) ** 2
         value_loss = self.value_loss_coeff * valid_mean(value_error, valid)
+
+        # Termination loss
+        beta_prev_o = select_at_indexes(prev_o, beta)
+        beta_error = beta_prev_o * beta_adv
+        beta_loss = self.termination_loss_coeff * valid_mean(beta_error, not_init_states)
+
+        # Pi_omega loss. Surrogate (if using)
+        if self.clip_pi_omega_loss:
+            ratio = dist_omega.likelihood_ratio(o, old_dist_info=old_dist_info_omega,
+            new_dist_info=dist_info_omega)
+            surr_1 = ratio * advantage
+            clipped_ratio = torch.clamp(ratio, 1. - self.ratio_clip,
+                                        1. + self.ratio_clip)
+            surr_2 = clipped_ratio * advantage
+            surrogate = torch.min(surr_1, surr_2)
+            pi_omega_loss = - valid_mean(surrogate, valid)
+        else:
+            logli = dist_omega.log_likelihood(o, dist_info_omega)
+            pi_omega_loss = - valid_mean(logli * advantage, valid)
 
         entropy = dist.mean_entropy(dist_info, valid)
         entropy_loss = - self.entropy_loss_coeff * entropy
+        entropy_o = dist_omega.mean_entropy(dist_info_omega, valid)
+        entropy_loss_omega = - self.omega_entropy_loss_coeff * entropy_o
 
-        loss = pi_loss + value_loss + entropy_loss
+        loss = pi_loss + pi_omega_loss + value_loss + beta_loss + entropy_loss + entropy_loss_omega
 
-        perplexity = dist.mean_perplexity(dist_info, valid)
-        return loss, entropy, perplexity
+        # perplexity = dist.mean_perplexity(dist_info, valid)
+        return loss, pi_loss, value_loss, beta_loss, pi_omega_loss, entropy, entropy_o

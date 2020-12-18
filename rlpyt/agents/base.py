@@ -14,7 +14,6 @@ AgentInputs = namedarraytuple("AgentInputs",
     ["observation", "prev_action", "prev_reward"])
 AgentStep = namedarraytuple("AgentStep", ["action", "agent_info"])
 
-
 class BaseAgent:
     """
     The agent performs many functions, including: action-selection during
@@ -306,6 +305,8 @@ class RecurrentAgentMixin:
 
 AgentInputsOC = namedarraytuple("AgentInputsOC",  # Training only.
     ["observation", "prev_action", "prev_reward", "sampled_option"])
+AgentInputsOCRnn = namedarraytuple("AgentInputsOCRnn",  # Training only.
+    ["observation", "prev_action", "prev_reward", "sampled_option", "init_rnn_state"])
 
 class OCAgentMixin:
     """
@@ -335,6 +336,7 @@ class OCAgentMixin:
         where B corresponds to environment index."""
         if self._prev_option is not None:
             self._prev_option[idx] = -1  # Automatic recursion in namedarraytuple.
+        if self._prev_rnn_state is not None:
             self._prev_rnn_state[:, idx] = 0  # Automatic recursion in namedarraytuple.
 
     def sample_option(self, betas, option_dist_info):

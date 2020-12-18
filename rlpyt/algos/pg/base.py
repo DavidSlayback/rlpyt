@@ -86,7 +86,7 @@ class PolicyGradientAlgo(RlAlgorithm):
 
         return return_, advantage, valid
 
-OptInfoOC = namedtuple("OptInfo", ["loss", "pi_loss", "q_loss", "beta_loss", "pi_omega_loss", "gradNorm", "entropy", "pi_omega_entropy","perplexity"])
+OptInfoOC = namedtuple("OptInfo", ["loss", "pi_loss", "q_loss", "beta_loss", "pi_omega_loss", "gradNorm", "entropy", "pi_omega_entropy"])
 AgentTrainOC = namedtuple("AgentTrain", ["dist_info", "q", "beta", "inter_option_dist_info"])
 class OCAlgo(RlAlgorithm):
     """
@@ -128,13 +128,14 @@ class OCAlgo(RlAlgorithm):
         according to ``mid_batch_reset`` or for recurrent agent.  Optionally,
         normalize advantages.
         """
-        reward, done, q, termination, o, prev_o, pi_omega, bv = (samples.env.reward, samples.env.done,
-                                                                 samples.agent.agent_info.q,
-                                                                 samples.agent.agent_info.termination,
-                                                                 samples.agent.agent_info.o,
-                                                                 samples.agent.agent_info.prev_o,
-                                                                 samples.agent.agent_info.inter_option_dist_info,
-                                                                 samples.agent.bootstrap_value)
+        reward, done, q, v, termination, o, prev_o, pi_omega, bv = (samples.env.reward, samples.env.done,
+                                                                    samples.agent.agent_info.q,
+                                                                    samples.agent.agent_info.value,
+                                                                    samples.agent.agent_info.termination,
+                                                                    samples.agent.agent_info.o,
+                                                                    samples.agent.agent_info.prev_o,
+                                                                    samples.agent.agent_info.dist_info_omega,
+                                                                    samples.agent.bootstrap_value)
         done = done.type(reward.dtype)
         q_o = select_at_indexes(o, q)
         if self.normalize_rewards is not None:  # Normalize and clip rewards before computing advantage
@@ -161,7 +162,6 @@ class OCAlgo(RlAlgorithm):
             valid = None  # OR torch.ones_like(done)
 
         q_prev_o = select_at_indexes(prev_o, q)
-        v = pi_omega * q
         termination_advantage = q_prev_o - v + self.delib_cost
 
         if self.normalize_advantage:
