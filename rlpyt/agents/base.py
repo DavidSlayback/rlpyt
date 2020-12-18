@@ -337,17 +337,18 @@ class OCAgentMixin:
             self._prev_option[idx] = -1  # Automatic recursion in namedarraytuple.
             self._prev_rnn_state[:, idx] = 0  # Automatic recursion in namedarraytuple.
 
-    def sample_option(self, terminations, option_dist_info):
+    def sample_option(self, betas, option_dist_info):
         """Sample options according to which previous options are terminated and probability over options"""
-        terminations = terminations.view(-1, self.n_opt)
+        betas = betas.view(-1, self.n_opt)
         if self._prev_option is None:  # No previous option, store as -1
-            self._prev_option = torch.full_like(terminations[:, 0], -1,dtype=torch.long).squeeze()
+            self._prev_option = torch.full_like(betas[:, 0], -1,dtype=torch.long).squeeze()
+        terminations = select_at_indexes(self._prev_option, torch.bernoulli(betas).bool().squeeze())
         options = self._prev_option.clone()
         new_o = self.distribution_omega.sample(option_dist_info).expand_as(self._prev_option)
         options[self._prev_option == -1] = new_o[self._prev_option == -1]  # Must terminate, episode reset
         mask = self._prev_option != -1
-        options[mask] = torch.where(terminations[torch.nonzero(mask).flatten(), self._prev_option[mask]].flatten(), new_o[mask], self._prev_option[mask])
-        return options
+        options[mask] = torch.where(terminations[torch.nonzero(mask).flatten()].flatten(), new_o[mask], self._prev_option[mask])
+        return options, terminations
 
     def advance_oc_state(self, new_option):
         """Sets the previous option to the newly computed one (i.e. option-critic agents should

@@ -49,9 +49,8 @@ class GaussianOCAgentBase(BaseAgent):
         model_inputs = buffer_to((observation, prev_action, prev_reward),
             device=self.device)
         mu, log_std, q, beta, pi = self.model(*model_inputs)
-        terminations = torch.bernoulli(beta).bool()  # Sample terminations
         dist_info_omega = DistInfo(prob=pi)
-        new_o = self.sample_option(terminations, dist_info_omega)
+        new_o, terminations = self.sample_option(beta, dist_info_omega)  # Sample terminations and options
         dist_info = DistInfoStd(mean=mu, log_std=log_std)
         dist_info_o = DistInfoStd(mean=select_at_indexes(new_o, mu), log_std=select_at_indexes(new_o, log_std))
         action = self.distribution.sample(dist_info_o)

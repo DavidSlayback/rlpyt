@@ -131,7 +131,7 @@ class OCAlgo(RlAlgorithm):
         reward, done, q, termination, o, prev_o, pi_omega, bv = (samples.env.reward, samples.env.done,
                                                                  samples.agent.agent_info.q,
                                                                  samples.agent.agent_info.termination,
-                                                                 samples.agent.agent_info.current_o,
+                                                                 samples.agent.agent_info.o,
                                                                  samples.agent.agent_info.prev_o,
                                                                  samples.agent.agent_info.inter_option_dist_info,
                                                                  samples.agent.bootstrap_value)
