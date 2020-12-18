@@ -208,7 +208,7 @@ class MujocoOCFfModel(torch.nn.Module):
         obs_flat = observation.view(T * B, -1)
         mu, logstd = self.mu(obs_flat)
         q = self.q(obs_flat)
-        log_std = logstd.repeat(T * B, 1)
+        log_std = logstd.repeat(T * B, 1, 1)
         beta = self.beta(obs_flat)
         pi = self.pi_omega(obs_flat)
 

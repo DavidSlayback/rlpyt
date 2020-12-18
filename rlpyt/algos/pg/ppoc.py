@@ -15,18 +15,21 @@ LossInputs = namedarraytuple("LossInputs",
 
 class PPOC(OCAlgo):
     """
-    Proximal Policy Optimization algorithm.  Trains the agent by taking
+    Proximal Policy Option Critic algorithm.  Trains the agent by taking
     multiple epochs of gradient steps on minibatches of the training data at
     each iteration, with advantages computed by generalized advantage
-    estimation.  Uses clipped likelihood ratios in the policy loss.
+    estimation.  Uses clipped likelihood ratios in the low-level policy loss.
     """
 
     def __init__(
             self,
             discount=0.99,
             learning_rate=0.001,
-            value_loss_coeff=1.,
-            entropy_loss_coeff=0.01,
+            value_loss_coeff=0.5,
+            term_loss_coeff=1.,  # Coefficient for termination loss component
+            entropy_loss_coeff=0.01,  # Entropy loss for low-level policy
+            omega_entropy_loss_coeff=0.01,  # Entropy loss for policy over options
+            delib_cost=0.,  # Cost for switching options. Subtracted from rewards after normalization...Also added to termination advantage
             OptimCls=torch.optim.Adam,
             optim_kwargs=None,
             clip_grad_norm=1.,
@@ -37,6 +40,7 @@ class PPOC(OCAlgo):
             ratio_clip=0.1,
             linear_lr_schedule=True,
             normalize_advantage=False,
+            normalize_termination_advantage=False,  # Normalize termination advantage? Doesn't seem to be done
             clip_vf_loss=False,  # Clip VF_loss as in OpenAI?
             normalize_rewards='return',  # Can be 'return' (OpenAI, no mean subtraction), 'reward' (same as obs normalization) or None
             rew_clip=(-10, 10),  # Additional clipping for reward
@@ -76,7 +80,7 @@ class PPOC(OCAlgo):
         agent_inputs = buffer_to(agent_inputs, device=self.agent.device)
         if hasattr(self.agent, "update_obs_rms"):
             self.agent.update_obs_rms(agent_inputs.observation)
-        return_, advantage, valid = self.process_returns(samples)
+        return_, advantage, valid, beta_adv, not_init_states = self.process_returns(samples)
         loss_inputs = LossInputs(  # So can slice all.
             agent_inputs=agent_inputs,
             action=samples.agent.action,
@@ -90,7 +94,7 @@ class PPOC(OCAlgo):
             # Leave in [B,N,H] for slicing to minibatches.
             init_rnn_state = samples.agent.agent_info.prev_rnn_state[0]  # T=0.
         T, B = samples.env.reward.shape[:2]
-        opt_info = OptInfo(*([] for _ in range(len(OptInfo._fields))))
+        opt_info = OptInfoOC(*([] for _ in range(len(OptInfoOC._fields))))
         # If recurrent, use whole trajectories, only shuffle B; else shuffle all.
         batch_size = B if self.agent.recurrent else T * B
         mb_size = batch_size // self.minibatches

@@ -7,6 +7,7 @@ from rlpyt.utils.quick_args import save__init__args
 from rlpyt.utils.collections import namedarraytuple
 from rlpyt.utils.synchronize import RWLock
 from rlpyt.utils.logging import logger
+from rlpyt.utils.tensor import select_at_indexes
 from rlpyt.models.utils import strip_ddp_state_dict
 
 AgentInputs = namedarraytuple("AgentInputs",
@@ -308,19 +309,25 @@ AgentInputsOC = namedarraytuple("AgentInputsOC",  # Training only.
 
 class OCAgentMixin:
     """
-    Mixin class to manage recurrent state during sampling (so the sampler
+    Mixin class to manage option state during sampling (so the sampler
     remains agnostic).  To be used like ``class
-    MyRecurrentAgent(RecurrentAgentMixin, MyAgent):``.
+    MyOCAgent(RecurrentAgentMixin, MyAgent):``.
     """
 
+    recurrent = False
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._prev_rnn_state = None
+        self._sample_rnn_state = None  # Store during eval.
         self._prev_option = None
         self._sample_prev_option = None  # Store during eval.
+        assert 'option_size' in self.model_kwargs
+        self.n_opt = self.model_kwargs['option_size']
 
     def reset(self):
         """Sets the previous option to ``None``"""
         self._prev_option = None
+        self._prev_rnn_state = None
 
     def reset_one(self, idx):
         """Sets the previous option corresponding to one environment instance
@@ -328,15 +335,18 @@ class OCAgentMixin:
         where B corresponds to environment index."""
         if self._prev_option is not None:
             self._prev_option[idx] = -1  # Automatic recursion in namedarraytuple.
+            self._prev_rnn_state[:, idx] = 0  # Automatic recursion in namedarraytuple.
 
-    def sample_option(self, terminations, option_dist):
+    def sample_option(self, terminations, option_dist_info):
         """Sample options according to which previous options are terminated and probability over options"""
-        if self._prev_option is None:  # No previous option, all at random to start
-            self._prev_option = torch.randint_like(terminations, option_dist.dim).long()
+        terminations = terminations.view(-1, self.n_opt)
+        if self._prev_option is None:  # No previous option, store as -1
+            self._prev_option = torch.full_like(terminations[:, 0], -1,dtype=torch.long).squeeze()
         options = self._prev_option.clone()
-        new_o = option_dist.sample()
-        new_o_idx = torch.logical_or(terminations, self._prev_option == -1)
-        options[new_o_idx] = new_o[new_o_idx]
+        new_o = self.distribution_omega.sample(option_dist_info).expand_as(self._prev_option)
+        options[self._prev_option == -1] = new_o[self._prev_option == -1]  # Must terminate, episode reset
+        mask = self._prev_option != -1
+        options[mask] = torch.where(terminations[torch.nonzero(mask).flatten(), self._prev_option[mask]].flatten(), new_o[mask], self._prev_option[mask])
         return options
 
     def advance_oc_state(self, new_option):
@@ -344,29 +354,46 @@ class OCAgentMixin:
         call this at the end of their ``step()``). """
         self._prev_option = new_option
 
+    def advance_rnn_state(self, new_rnn_state):
+        """Sets the recurrent state to the newly computed one (i.e. recurrent agents should
+        call this at the end of their ``step()``). """
+        self._prev_rnn_state = new_rnn_state
+
     @property
     def prev_option(self):
         return self._prev_option
+
+    @property
+    def prev_rnn_state(self):
+        return self._prev_rnn_state
 
     def train_mode(self, itr):
         """If coming from sample mode, store the previous option elsewhere and clear it."""
         if self._mode == "sample":
             self._sample_prev_option = self._prev_option
+            self._sample_rnn_state = self._prev_rnn_state
         self._prev_option = None
+        self._prev_rnn_state = None
         super().train_mode(itr)
 
     def sample_mode(self, itr):
         """If coming from non-sample modes, restore the last sample-mode rnn state."""
         if self._mode != "sample":
             self._prev_option = self._sample_prev_option
+            self._prev_rnn_state = self._sample_rnn_state
         super().sample_mode(itr)
 
     def eval_mode(self, itr):
         """If coming from sample mode, store the rnn state elsewhere and clear it."""
         if self._mode == "sample":
             self._sample_prev_option = self._prev_option
+            self._sample_rnn_state = self._prev_rnn_state
         self._prev_option = None
+        self._prev_rnn_state = None
         super().eval_mode(itr)
+
+class RecurrentOCAgentMixin(OCAgentMixin):
+    recurrent = True
 
 class AlternatingRecurrentAgentMixin:
     """
@@ -433,3 +460,117 @@ class AlternatingRecurrentAgentMixin:
     def toggle_alt(self):
         self._alt ^= 1
         self._prev_rnn_state = self._prev_rnn_state_pair[self._alt]
+
+class AlternatingOCAgentMixin:
+    """
+    Maintain an alternating pair of recurrent states to use when stepping in
+    the sampler. Automatically swap them out when ``advance_rnn_state()`` is
+    called, so it otherwise behaves like regular recurrent agent.  Should use
+    only in alternating samplers, where two sets of environment instances take
+    turns stepping (no special class needed for feedforward agents).  Use in
+    place of ``RecurrentAgentMixin``.
+    """
+
+    recurrent = False
+    alternating = True
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._alt = 0
+        self._alt_o = 0
+        self._prev_rnn_state = None
+        self._prev_rnn_state_pair = [None, None]
+        self._sample_rnn_state_pair = [None, None]
+        self._prev_option = None
+        self._prev_option_pair = [None, None]
+        self._sample_option_pair = [None, None]
+        assert 'option_size' in self.model_kwargs
+        self.n_opt = self.model_kwargs['option_size']
+
+    def reset(self):
+        self._prev_rnn_state_pair = [None, None]
+        self._prev_rnn_state = None
+        self._prev_option = None
+        self._prev_option_pair = [None, None]
+        self._alt = 0
+        self._alt_o = 0
+        # Leave _sample_rnn_state_pair alone.
+
+    def advance_rnn_state(self, new_rnn_state):
+        """To be called inside agent.step()."""
+        self._prev_rnn_state_pair[self._alt] = new_rnn_state
+        self._alt ^= 1
+        self._prev_rnn_state = self._prev_rnn_state_pair[self._alt]
+
+    def advance_oc_state(self, new_option):
+        """Sets the previous option to the newly computed one (i.e. option-critic agents should
+        call this at the end of their ``step()``). """
+        self._prev_option_pair[self._alt_o] = new_option
+        self._alt_o ^= 1
+        self._prev_option = self._prev_option_pair[self._alt_o]
+
+    def sample_option(self, terminations, option_dist_info):
+        """Sample options according to which previous options are terminated and probability over options"""
+        terminations = terminations.view(-1, self.n_opt)
+        if self._prev_option is None:  # No previous option, store as -1
+            self._prev_option = torch.full_like(terminations[:,0], -1).long()
+        options = self._prev_option.clone()
+        new_o = self.distribution_omega.sample(option_dist_info)
+        new_o_idx = torch.logical_or(terminations, self._prev_option == -1)
+        options[new_o_idx] = new_o[new_o_idx]
+        return options
+
+    @property
+    def prev_rnn_state(self):
+        return self._prev_rnn_state
+
+    @property
+    def prev_option(self):
+        return self._prev_option
+
+    def train_mode(self, itr):
+        if self._mode == "sample":
+            self._sample_rnn_state_pair = self._prev_rnn_state_pair
+            self._sample_option_pair = self._prev_option_pair
+        self._prev_rnn_state_pair = [None, None]
+        self._prev_rnn_state = None
+        self._alt = 0
+        self._prev_option_pair = [None, None]
+        self._prev_option_state = None
+        self._alt_o = 0
+        super().train_mode(itr)
+
+    def sample_mode(self, itr):
+        if self._mode != "sample":
+            self._prev_rnn_state_pair = self._sample_rnn_state_pair
+            self._alt = 0
+            self._prev_rnn_state = self._prev_rnn_state_pair[0]
+            self._prev_option_pair_pair = self._sample_option_pair
+            self._alt_o = 0
+            self._prev_option = self._prev_option_pair[0]
+        super().sample_mode(itr)
+
+    def eval_mode(self, itr):
+        if self._mode == "sample":
+            self._sample_rnn_state_pair = self._prev_rnn_state_pair
+            self._sample_option_pair = self._prev_option_pair
+        self._prev_rnn_state_pair = [None, None]
+        self._prev_rnn_state = None
+        self._alt = 0
+        self._prev_option_pair = [None, None]
+        self._prev_option_state = None
+        self._alt_o = 0
+        super().eval_mode(itr)
+
+    def get_alt(self):
+        return self._alt_o
+
+    def toggle_alt(self):
+        self._alt ^= 1
+        self._alt_o ^= 1
+        self._prev_rnn_state = self._prev_rnn_state_pair[self._alt]
+        self._prev_option_state = self._prev_option_pair[self._alt_o]
+
+
+class AlternatingRecurrentOCAgentMixin(AlternatingOCAgentMixin):
+    recurrent = True
