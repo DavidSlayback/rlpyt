@@ -105,7 +105,7 @@ class A2OC(OCAlgo):
         dist = self.agent.distribution
         dist_omega = self.agent.distribution_omega
         # TODO: try to compute everyone on device.
-        return_, advantage, valid, beta_adv, not_init_states = self.process_returns(samples)
+        return_, advantage, valid, beta_adv, not_init_states, op_adv = self.process_returns(samples)
 
         logli = dist.log_likelihood(samples.agent.action, dist_info_o)
         pi_loss = - valid_mean(logli * advantage, valid)
@@ -122,7 +122,8 @@ class A2OC(OCAlgo):
         beta_loss = self.termination_loss_coeff * valid_mean(beta_error, not_init_states)
 
         logli = dist_omega.log_likelihood(o, dist_info_omega)
-        pi_omega_loss = - valid_mean(logli * advantage, valid)
+        # pi_omega_loss = - valid_mean(logli * advantage, valid)
+        pi_omega_loss = - valid_mean(logli * op_adv, valid)
 
         entropy = dist.mean_entropy(dist_info_o, valid)
         entropy_loss = - self.entropy_loss_coeff * entropy

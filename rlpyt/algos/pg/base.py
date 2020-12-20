@@ -88,37 +88,13 @@ class PolicyGradientAlgo(RlAlgorithm):
 
 OptInfoOC = namedtuple("OptInfo", ["loss", "pi_loss", "q_loss", "beta_loss", "pi_omega_loss", "gradNorm", "entropy", "pi_omega_entropy"])
 AgentTrainOC = namedtuple("AgentTrain", ["dist_info", "q", "beta", "inter_option_dist_info"])
-class OCAlgo(RlAlgorithm):
+class OCAlgo(PolicyGradientAlgo):
     """
     Base option-critic algorithm, which includes
     initialization procedure and processing of data samples to compute
     advantages.
     """
-
-    bootstrap_value = True  # Tells the sampler it needs Value(State')
     opt_info_fields = tuple(f for f in OptInfoOC._fields)  # copy
-
-    def initialize(self, agent, n_itr, batch_spec, mid_batch_reset=False,
-            examples=None, world_size=1, rank=0):
-        """
-        Build the torch optimizer and store other input attributes. Params
-        ``batch_spec`` and ``examples`` are unused.
-        """
-        self.optimizer = self.OptimCls(agent.parameters(),
-            lr=self.learning_rate, **self.optim_kwargs)
-        if self.initial_optim_state_dict is not None:
-            self.optimizer.load_state_dict(self.initial_optim_state_dict)
-        self.agent = agent
-        self.n_opt = self.agent.n_opt
-        self.n_itr = n_itr
-        self.batch_spec = batch_spec
-        self.mid_batch_reset = mid_batch_reset
-        self.rank = rank
-        self.world_size = world_size
-        self.ret_rms = None if self.normalize_rewards is None else \
-            RunningReward(None, *self.rew_clip, self.rew_min_var)
-        # self.ret_rms = None if self.normalize_rewards is None else \
-        #     RunningMeanStdModel((), *self.rew_clip, self.rew_min_var)
 
     def process_returns(self, samples):
         """
@@ -152,9 +128,11 @@ class OCAlgo(RlAlgorithm):
         if self.gae_lambda == 1:  # GAE reduces to empirical discounted.
             return_ = discount_return(reward, done, bv, self.discount)
             advantage = return_ - q_o
+            op_adv = return_ - v
         else:
             advantage, return_ = generalized_advantage_estimation(
                 reward, q_o, done, bv, self.discount, self.gae_lambda)
+            op_adv, _ = generalized_advantage_estimation(reward, v, done, bv, self.discount, self.gae_lambda)
 
         if not self.mid_batch_reset or self.agent.recurrent:
             valid = valid_from_done(done)  # Recurrent: no reset during training.
@@ -169,10 +147,15 @@ class OCAlgo(RlAlgorithm):
                 valid_mask = valid > 0
                 adv_mean = advantage[valid_mask].mean()
                 adv_std = advantage[valid_mask].std()
+                op_adv_mean = advantage[valid_mask].mean()
+                op_adv_std = advantage[valid_mask].std()
             else:
                 adv_mean = advantage.mean()
                 adv_std = advantage.std()
+                op_adv_mean = op_adv.mean()
+                op_adv_std = op_adv.std()
             advantage[:] = (advantage - adv_mean) / max(adv_std, 1e-6)
+            op_adv[:] = (op_adv - op_adv_mean) / max(op_adv_std, 1e-6)
 
         if self.normalize_termination_advantage:
             valid_mask = valid_o > 0
@@ -180,4 +163,4 @@ class OCAlgo(RlAlgorithm):
             adv_std = termination_advantage[valid_mask].std()
             termination_advantage[:] = (termination_advantage - adv_mean) / max(adv_std, 1e-6)
 
-        return return_, advantage, valid, termination_advantage, valid_o
+        return return_, advantage, valid, termination_advantage, valid_o, op_adv

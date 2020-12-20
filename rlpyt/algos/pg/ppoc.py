@@ -10,7 +10,7 @@ from rlpyt.utils.collections import namedarraytuple
 from rlpyt.utils.misc import iterate_mb_idxs
 
 LossInputs = namedarraytuple("LossInputs",
-    ["agent_inputs", "action", "option", "prev_option", "return_", "advantage", "termination_advantage",
+    ["agent_inputs", "action", "option", "prev_option", "return_", "advantage", "op_adv", "termination_advantage",
      "valid", "not_init_states", "old_dist_info_o", "old_dist_info_omega", "old_q"])
 
 
@@ -84,7 +84,7 @@ class PPOC(OCAlgo):
         agent_inputs = buffer_to(agent_inputs, device=self.agent.device)
         if hasattr(self.agent, "update_obs_rms"):
             self.agent.update_obs_rms(agent_inputs.observation)
-        return_, advantage, valid, beta_adv, not_init_states = self.process_returns(samples)
+        return_, advantage, valid, beta_adv, not_init_states, op_adv = self.process_returns(samples)
         loss_inputs = LossInputs(  # So can slice all.
             agent_inputs=agent_inputs,
             action=samples.agent.action,
@@ -92,6 +92,7 @@ class PPOC(OCAlgo):
             prev_option=samples.agent.agent_info.prev_o,
             return_=return_,
             advantage=advantage,
+            op_adv=op_adv,
             termination_advantage=beta_adv,
             valid=valid,
             not_init_states=not_init_states,
@@ -136,7 +137,7 @@ class PPOC(OCAlgo):
 
         return opt_info
 
-    def loss(self, agent_inputs, action, o, prev_o, return_, advantage, beta_adv, valid, not_init_states, old_dist_info_o,
+    def loss(self, agent_inputs, action, o, prev_o, return_, advantage, op_adv, beta_adv, valid, not_init_states, old_dist_info_o,
              old_dist_info_omega, old_q, init_rnn_state=None):
         """
         Compute the training loss: policy_loss + value_loss + entropy_loss
@@ -188,15 +189,18 @@ class PPOC(OCAlgo):
         if self.clip_pi_omega_loss:
             ratio = dist_omega.likelihood_ratio(o, old_dist_info=old_dist_info_omega,
             new_dist_info=dist_info_omega)
-            surr_1 = ratio * advantage
+            # surr_1 = ratio * advantage
+            surr_1 = ratio * op_adv
             clipped_ratio = torch.clamp(ratio, 1. - self.ratio_clip,
                                         1. + self.ratio_clip)
-            surr_2 = clipped_ratio * advantage
+            # surr_2 = clipped_ratio * advantage
+            surr_2 = clipped_ratio * op_adv
             surrogate = torch.min(surr_1, surr_2)
             pi_omega_loss = - valid_mean(surrogate, valid)
         else:
             logli = dist_omega.log_likelihood(o, dist_info_omega)
-            pi_omega_loss = - valid_mean(logli * advantage, valid)
+            # pi_omega_loss = - valid_mean(logli * advantage, valid)
+            pi_omega_loss = - valid_mean(logli * op_adv, valid)
 
         entropy = dist.mean_entropy(dist_info_o, valid)
         entropy_loss = - self.entropy_loss_coeff * entropy
