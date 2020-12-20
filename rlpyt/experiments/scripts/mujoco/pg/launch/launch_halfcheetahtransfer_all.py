@@ -12,7 +12,7 @@ affinity_code = encode_affinity(
 )
 
 runs_per_setting = 6  # 6 runs
-
+"""
 # A2C
 path = pathlib.Path(__file__).resolve().parent.parent / 'train' / "mujoco_ff_a2c_gpu.py"
 script = path.as_posix()
@@ -56,6 +56,7 @@ run_experiments(
     log_dirs=log_dirs,
     common_args=(default_config_key,),
 )
+"""
 
 # PPOC
 path = pathlib.Path(__file__).resolve().parent.parent / 'train' / "mujoco_ff_ppoc_gpu.py"
