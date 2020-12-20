@@ -130,6 +130,7 @@ class MujocoOCFfModel(torch.nn.Module):
             norm_obs_clip=10,
             norm_obs_var_clip=1e-6,
             baselines_init=True,  # Orthogonal initialization of sqrt(2) until last layer, then 0.01 for policy, 1 for value
+            use_interest=False,  # IOC sigmoid interest functions
             ):
         """Instantiate neural net modules according to inputs."""
         super().__init__()
@@ -181,11 +182,20 @@ class MujocoOCFfModel(torch.nn.Module):
             nonlinearity=hidden_nonlinearity,
             inits=inits_v
         ), torch.nn.Softmax(-1))
+        # Per-option sigmoid interest functions
+        self.pi_omega_I = torch.nn.Sequential(MlpModel(
+            input_size=input_size,
+            hidden_sizes=hidden_sizes,
+            output_size=option_size,
+            nonlinearity=hidden_nonlinearity,
+            inits=inits_v
+        ), torch.nn.Sigmoid()) if use_interest else torch.nn.Identity()
         if normalize_observation:
             self.obs_rms = RunningMeanStdModel(observation_shape)
             self.norm_obs_clip = norm_obs_clip
             self.norm_obs_var_clip = norm_obs_var_clip
         self.normalize_observation = normalize_observation
+        self.use_interest = use_interest
 
     def forward(self, observation, prev_action, prev_reward):
         """
@@ -211,6 +221,12 @@ class MujocoOCFfModel(torch.nn.Module):
         log_std = logstd.repeat(T * B, 1, 1)
         beta = self.beta(obs_flat)
         pi = self.pi_omega(obs_flat)
+        if self.use_interest:
+            I = self.pi_omega_I(obs_flat)
+            mu, log_std, q, beta, pi, I = restore_leading_dims((mu, log_std, q, beta, pi, I), lead_dim, T, B)
+            pi = pi * I
+            pi = pi / pi.sum(0)
+            return mu, log_std, q, beta, pi
 
         # Restore leading dimensions: [T,B], [B], or [], as input.
         mu, log_std, q, beta, pi = restore_leading_dims((mu, log_std, q, beta, pi), lead_dim, T, B)
@@ -334,7 +350,7 @@ class MujocoIOCFfModel(torch.nn.Module):
         # Restore leading dimensions: [T,B], [B], or [], as input.
         mu, log_std, q, beta, pi, I = restore_leading_dims((mu, log_std, q, beta, pi, I), lead_dim, T, B)
         pi_I = pi * I
-        pi_I = pi_I / pi_I.sum(-1)
+        pi_I = pi_I / pi_I.sum(0)
         return mu, log_std, q, beta, pi_I
 
     def update_obs_rms(self, observation):

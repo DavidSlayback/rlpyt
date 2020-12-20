@@ -72,7 +72,7 @@ config = dict(
         rew_min_var=(1e-6)
     ),
     env=dict(id="HalfCheetah-Directional-v0"),
-    model=dict(normalize_observation=True, baselines_init=True, option_size=2),
+    model=dict(normalize_observation=True, baselines_init=True, option_size=2, use_interest=False),
     optim=dict(),
     runner=dict(
         seed=None,
@@ -90,3 +90,6 @@ config = dict(
 )
 
 configs["ppoc_1M_halfcheetahtransfer"] = config
+config = copy.deepcopy(config)
+config["model"]["use_interest"] = True
+configs["ppioc_1M_halfcheetahtransfer"] = config

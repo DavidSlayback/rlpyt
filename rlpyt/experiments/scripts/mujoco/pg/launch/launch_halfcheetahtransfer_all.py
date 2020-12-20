@@ -58,16 +58,71 @@ run_experiments(
 )
 """
 
-# PPOC
+# # PPOC
+# path = pathlib.Path(__file__).resolve().parent.parent / 'train' / "mujoco_ff_ppoc_gpu.py"
+# script = path.as_posix()
+# default_config_key = "ppoc_1M_halfcheetahtransfer"
+# experiment_title = "PPOC_HalfCheetahDirectionalTransfer"
+# variant_levels = list()
+# lrs = [3e-5, 1e-4, 3e-4]
+# delib=[0., 1e-1, 1.]
+# values = list(zip(delib))
+# dir_names = ["PPOC_{}".format(*v) for v in values]
+# keys = [("algo", "delib_cost")]
+# variant_levels.append(VariantLevel(keys, values, dir_names))
+# values = list(zip(lrs))
+# keys = [("algo", "learning_rate")]
+# dir_names = ["lr_{}".format(*v) for v in values]
+# variant_levels.append(VariantLevel(keys, values, dir_names))
+# variants, log_dirs = make_variants(*variant_levels)
+# run_experiments(
+#     script=script,
+#     affinity_code=affinity_code,
+#     experiment_title=experiment_title,
+#     runs_per_setting=runs_per_setting,
+#     variants=variants,
+#     log_dirs=log_dirs,
+#     common_args=(default_config_key,),
+# )
+#
+# # A2OC
+# path = pathlib.Path(__file__).resolve().parent.parent / 'train' / "mujoco_ff_a2oc_gpu.py"
+# script = path.as_posix()
+# default_config_key = "a2oc_1M_halfcheetahtransfer"
+# experiment_title = "A2OC_HalfCheetahDirectionalTransfer"
+# variant_levels = list()
+# lrs = [3e-5, 1e-4, 3e-4]
+# delib=[0., 1e-1, 1.]
+# values = list(zip(delib))
+# dir_names = ["A2OC_{}".format(*v) for v in values]
+# keys = [("algo", "delib_cost")]
+# variant_levels.append(VariantLevel(keys, values, dir_names))
+# values = list(zip(lrs))
+# keys = [("algo", "learning_rate")]
+# dir_names = ["lr_{}".format(*v) for v in values]
+# variant_levels.append(VariantLevel(keys, values, dir_names))
+# variants, log_dirs = make_variants(*variant_levels)
+#
+# run_experiments(
+#     script=script,
+#     affinity_code=affinity_code,
+#     experiment_title=experiment_title,
+#     runs_per_setting=runs_per_setting,
+#     variants=variants,
+#     log_dirs=log_dirs,
+#     common_args=(default_config_key,),
+# )
+
+# PPIOC
 path = pathlib.Path(__file__).resolve().parent.parent / 'train' / "mujoco_ff_ppoc_gpu.py"
 script = path.as_posix()
-default_config_key = "ppoc_1M_halfcheetahtransfer"
-experiment_title = "PPOC_HalfCheetahDirectionalTransfer"
+default_config_key = "ppioc_1M_halfcheetahtransfer"
+experiment_title = "PPIOC_HalfCheetahDirectionalTransfer"
 variant_levels = list()
 lrs = [3e-5, 1e-4, 3e-4]
 delib=[0., 1e-1, 1.]
 values = list(zip(delib))
-dir_names = ["PPOC_{}".format(*v) for v in values]
+dir_names = ["PPIOC_{}".format(*v) for v in values]
 keys = [("algo", "delib_cost")]
 variant_levels.append(VariantLevel(keys, values, dir_names))
 values = list(zip(lrs))
@@ -85,16 +140,16 @@ run_experiments(
     common_args=(default_config_key,),
 )
 
-# A2OC
+# A2IOC
 path = pathlib.Path(__file__).resolve().parent.parent / 'train' / "mujoco_ff_a2oc_gpu.py"
 script = path.as_posix()
-default_config_key = "a2oc_1M_halfcheetahtransfer"
+default_config_key = "a2ioc_1M_halfcheetahtransfer"
 experiment_title = "A2OC_HalfCheetahDirectionalTransfer"
 variant_levels = list()
 lrs = [3e-5, 1e-4, 3e-4]
 delib=[0., 1e-1, 1.]
 values = list(zip(delib))
-dir_names = ["A2OC_{}".format(*v) for v in values]
+dir_names = ["A2IOC_{}".format(*v) for v in values]
 keys = [("algo", "delib_cost")]
 variant_levels.append(VariantLevel(keys, values, dir_names))
 values = list(zip(lrs))
