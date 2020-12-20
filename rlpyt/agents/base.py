@@ -14,6 +14,10 @@ AgentInputs = namedarraytuple("AgentInputs",
     ["observation", "prev_action", "prev_reward"])
 AgentStep = namedarraytuple("AgentStep", ["action", "agent_info"])
 
+class MultipleOptimizerMixin:
+    def parameters(self):
+        return {module_name: module.parameters() for module_name, module in self.model._modules.items() if module_name != 'obs_rms'}
+
 class BaseAgent:
     """
     The agent performs many functions, including: action-selection during

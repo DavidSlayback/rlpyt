@@ -207,7 +207,6 @@ class MujocoOCFfModel(torch.nn.Module):
         """
         # Infer (presence of) leading dimensions: [T,B], [B], or [].
         lead_dim, T, B, _ = infer_leading_dims(observation, self._obs_ndim)
-
         if self.normalize_observation:
             obs_var = self.obs_rms.var
             if self.norm_obs_var_clip is not None:

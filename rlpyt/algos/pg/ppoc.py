@@ -26,6 +26,9 @@ class PPOC(OCAlgo):
             self,
             discount=0.99,
             learning_rate=0.001,
+            termination_lr=0.001,  # Termination learning rate
+            pi_omega_lr=0.001,  # policy over options learning rate
+            interest_lr=0.001,  # Learning rate for interest function
             value_loss_coeff=0.5,
             termination_loss_coeff=1.,  # Coefficient for termination loss component
             entropy_loss_coeff=0.01,  # Entropy loss for low-level policy
