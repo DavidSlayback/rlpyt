@@ -225,6 +225,7 @@ class MujocoOCFfModel(torch.nn.Module):
             mu, log_std, q, beta, pi, I = restore_leading_dims((mu, log_std, q, beta, pi, I), lead_dim, T, B)
             pi = pi * I
             pi = pi / pi.sum(0)
+            pi[torch.isnan(pi)] = 0.
             return mu, log_std, q, beta, pi
 
         # Restore leading dimensions: [T,B], [B], or [], as input.
