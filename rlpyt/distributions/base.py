@@ -54,6 +54,19 @@ class Distribution:
         """
         raise NotImplementedError
 
+    def cross_entropy(self, dist_info_1, dist_info_2):
+        """
+        Compute cross-entropy of two distributions
+        """
+        raise NotImplementedError
+
+    def pairwise_cross_entropy(self, all_dist_info):
+        """
+        Compute pairwise cross-entropy for each pair of dist_infos. Assume all_dist_info in shape [N, num_info, A], as
+        in option-critic.
+        """
+        raise NotImplementedError
+
     def perplexity(self, dist_info):
         """Exponential of the entropy, maybe useful for logging."""
         return torch.exp(self.entropy(dist_info))
