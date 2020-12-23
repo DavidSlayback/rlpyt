@@ -4,7 +4,7 @@ import math
 
 from rlpyt.distributions.base import Distribution
 from rlpyt.utils.collections import namedarraytuple
-from rlpyt.utils.tensor import valid_mean
+from rlpyt.utils.tensor import valid_mean, batch_pairwise_joint_entropy_mean_T_B, batch_pairwise_cross_entropy_mean_T_B
 
 EPS = 1e-8
 
@@ -96,6 +96,19 @@ class Gaussian(Distribution):
         return torch.sum(log_std + math.log(math.sqrt(2 * math.pi * math.e)),
             dim=-1)
 
+    def pairwise_joint_entropy(self, all_dist_info, index=2):
+        log_prob = self._sample_loglikelihood_perdim(all_dist_info)[1]  # log probability for each option
+        return torch.clamp(batch_pairwise_joint_entropy_mean_T_B(torch.exp(log_prob), pair_dim=index), min=EPS)
+
+    def pairwise_cross_entropy(self, all_dist_info, index=2):
+        """
+        In TDEOC code, they sample actions for each option
+        take their softmax over entire batched thing (B, not T, B)
+        x1 is [Bxa], so softmax over Bxa (each option-time combo has own softmax)
+        """
+        a = self.sample(all_dist_info)  # T x B x o x a
+        return batch_pairwise_cross_entropy_mean_T_B(all_dist_info.prob, pair_dim=index)
+
     def perplexity(self, dist_info):
         return torch.exp(self.entropy(dist_info))
 
@@ -154,33 +167,32 @@ class Gaussian(Distribution):
             sample = squash * torch.tanh(sample)
         return sample, logli
 
-    # def sample_loglikelihood(self, dist_info):
-    #     """Use in SAC with squash correction, since log_likelihood() expects raw_action."""
-    #     mean = dist_info.mean
-    #     log_std = dist_info.log_std
-    #     if self.min_log_std is not None or self.max_log_std is not None:
-    #         log_std = torch.clamp(log_std, min=self.min_log_std,
-    #             max=self.max_log_std)
-    #     std = torch.exp(log_std)
-    #     normal = torch.distributions.Normal(mean, std)
-    #     sample = normal.rsample()
-    #     logli = normal.log_prob(sample)
-    #     if self.squash is not None:
-    #         sample = self.squash * torch.tanh(sample)
-    #         logli -= torch.sum(
-    #             torch.log(self.squash * (1 - torch.tanh(sample) ** 2) + EPS),
-    #             dim=-1)
-    #     return sample, logli
-
-
-        # squash = self.squash
-        # self.squash = None  # Temporarily turn OFF.
-        # sample = self.sample(dist_info)
-        # self.squash = squash  # Turn it back ON, raw_sample into squash correction.
-        # logli = self.log_likelihood(sample, dist_info)
-        # if squash is not None:
-        #     sample = squash * torch.tanh(sample)
-        # return sample, logli
+    def _sample_loglikelihood_perdim(self, dist_info):
+        """
+        Special method for use with SAC algorithm, which returns a new sampled
+        action and its log-likelihood for training use.  Temporarily turns OFF
+        squashing, so that log_likelihood can be computed on non-squashed sample,
+        and then restores squashing and applies it to the sample before output.
+        """
+        squash = self.squash
+        self.squash = None  # Temporarily turn OFF, raw sample into log_likelihood.
+        sample = self.sample(dist_info)
+        self.squash = squash  # Turn it back ON, squash correction in log_likelihood.
+        mean = dist_info.mean
+        if self.std is None:
+            log_std = dist_info.log_std
+            if self.min_log_std is not None or self.max_log_std is not None:
+                log_std = torch.clamp(log_std, min=self.min_log_std,
+                    max=self.max_log_std)
+            std = torch.exp(log_std)
+        else:
+            std, log_std = self.std, torch.log(self.std)
+        z = (sample - mean) / (std + EPS)
+        logli = -((log_std + 0.5 * z ** 2) +
+            0.5 * math.log(2 * math.pi))
+        if squash is not None:
+            sample = squash * torch.tanh(sample)
+        return sample, logli
 
     def sample(self, dist_info):
         """

@@ -4,7 +4,7 @@ import torch
 from rlpyt.distributions.base import Distribution
 from rlpyt.distributions.discrete import DiscreteMixin
 from rlpyt.utils.collections import namedarraytuple
-from rlpyt.utils.tensor import valid_mean, select_at_indexes
+from rlpyt.utils.tensor import valid_mean, select_at_indexes, batch_pairwise_joint_entropy_mean_T_B, batch_pairwise_cross_entropy_mean_T_B
 
 EPS = 1e-8
 
@@ -32,6 +32,17 @@ class Categorical(DiscreteMixin, Distribution):
     def entropy(self, dist_info):
         p = dist_info.prob
         return -torch.sum(p * torch.log(p + EPS), dim=-1)
+
+    def joint_entropy(self, dist_info_1, dist_info_2):
+        p1, p2 = dist_info_1.prob, dist_info_2.prob  # Assumed to already be softmax
+        joint = p1 * p2
+        return -torch.sum(joint * torch.log(joint), dim=-1)  # Sum over action dimension
+
+    def pairwise_joint_entropy(self, all_dist_info, index=2):
+        return batch_pairwise_joint_entropy_mean_T_B(all_dist_info.prob, pair_dim=index)
+
+    def pairwise_cross_entropy(self, all_dist_info, index=2):
+        return batch_pairwise_cross_entropy_mean_T_B(all_dist_info.prob, pair_dim=index)
 
     def log_likelihood(self, indexes, dist_info):
         selected_likelihood = select_at_indexes(indexes, dist_info.prob)
