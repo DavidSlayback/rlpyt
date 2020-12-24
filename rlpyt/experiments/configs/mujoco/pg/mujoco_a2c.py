@@ -1,7 +1,10 @@
 
 import copy
+from rlpyt.envs.wrappers import ClipActionsWrapper, RLPYT_WRAPPER_KEY
 
 configs = dict()
+env_args = dict()
+env_args[RLPYT_WRAPPER_KEY] = [ClipActionsWrapper]
 
 config = dict(
     agent=dict(),
@@ -13,7 +16,7 @@ config = dict(
         value_loss_coeff=0.5,
         normalize_advantage=True,
     ),
-    env=dict(id="Hopper-v3"),
+    env=dict(id="Hopper-v3", **env_args),
     model=dict(normalize_observation=False),
     optim=dict(),
     runner=dict(
@@ -41,7 +44,7 @@ config = dict(
         rew_clip=(-10, 10),
         rew_min_var=(1e-6)
     ),
-    env=dict(id="HalfCheetah-Directional-v0"),
+    env=dict(id="HalfCheetah-Directional-v0", **env_args),
     model=dict(normalize_observation=True, baselines_init=True),
     optim=dict(),
     runner=dict(

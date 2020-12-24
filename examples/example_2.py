@@ -12,6 +12,7 @@ example.
 
 from rlpyt.samplers.serial.sampler import SerialSampler
 from rlpyt.envs.gym import make as gym_make
+from rlpyt.envs.wrappers import ClipActionsWrapper, RLPYT_WRAPPER_KEY
 from rlpyt.algos.qpg.sac import SAC
 from rlpyt.agents.qpg.sac_agent import SacAgent
 from rlpyt.runners.minibatch_rl import MinibatchRlEval
@@ -19,10 +20,12 @@ from rlpyt.utils.logging.context import logger_context
 
 
 def build_and_train(env_id="Hopper-v3", run_ID=0, cuda_idx=None):
+    env_args = dict(id=env_id)
+    env_args[RLPYT_WRAPPER_KEY] = [ClipActionsWrapper]
     sampler = SerialSampler(
         EnvCls=gym_make,
-        env_kwargs=dict(id=env_id),
-        eval_env_kwargs=dict(id=env_id),
+        env_kwargs=env_args,
+        eval_env_kwargs=env_args,
         batch_T=1,  # One time-step per sampler iteration.
         batch_B=1,  # One environment (i.e. sampler Batch dimension).
         max_decorrelation_steps=0,

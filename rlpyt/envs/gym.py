@@ -5,11 +5,14 @@ from gym import Wrapper
 from gym.wrappers.time_limit import TimeLimit
 from collections import namedtuple
 import paper_gym
+import gym_minigrid
+import gym_miniworld
 
 from rlpyt.envs.base import EnvSpaces, EnvStep
 from rlpyt.spaces.gym_wrapper import GymSpaceWrapper
 from rlpyt.utils.collections import is_namedtuple_class
 
+RLPYT_WRAPPER_KEY = "RLPYT_Extra_Wrappers"
 
 class GymEnvWrapper(Wrapper):
     """Gym-style wrapper for converting the Openai Gym interface to the
@@ -165,21 +168,19 @@ def infill_info(info, sometimes_info):
             infill_info(info[k], v)
     return info
 
-
-class ClipActionsWrapper(gym.Wrapper):
-    def step(self, action):
-        import numpy as np
-        action = np.nan_to_num(action)
-        action = np.clip(action, self.action_space.low, self.action_space.high)
-        return self.env.step(action)
-
 def make(*args, info_example=None, **kwargs):
     """Use as factory function for making instances of gym environment with
     rlpyt's ``GymEnvWrapper``, using ``gym.make(*args, **kwargs)``.  If
     ``info_example`` is not ``None``, will include the ``EnvInfoWrapper``.
+
+    Updated to look for a list of wrappers to apply in FIFO order to the underlying gym environment
+    (before applying rlpyt wrapper)
     """
+    wrapper_classes = kwargs.pop(RLPYT_WRAPPER_KEY, [])  # Pop a list of gym wrappers (or None)
+    env = gym.make(*args, **kwargs)
+    for wrapper_class in wrapper_classes:
+        env = wrapper_class(env)
     if info_example is None:
-        return GymEnvWrapper(ClipActionsWrapper(gym.make(*args, **kwargs)))
+        return GymEnvWrapper(env)
     else:
-        return GymEnvWrapper(EnvInfoWrapper(
-            ClipActionsWrapper(gym.make(*args, **kwargs), info_example)))
+        return GymEnvWrapper(EnvInfoWrapper(env, info_example))

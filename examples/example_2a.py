@@ -12,7 +12,8 @@ example.
 
 from rlpyt.samplers.serial.sampler import SerialSampler
 from rlpyt.samplers.parallel.gpu.alternating_sampler import AlternatingSampler
-from rlpyt.envs.gym import make as gym_make
+from rlpyt.envs.gym import make as gym_make, RLPYT_WRAPPER_KEY
+from rlpyt.envs.wrappers import ClipActionsWrapper
 from rlpyt.algos.qpg.sac import SAC
 from rlpyt.agents.qpg.sac_agent import SacAgent
 from rlpyt.algos.pg.ppo import PPO
@@ -24,11 +25,12 @@ from rlpyt.experiments.configs.mujoco.pg.mujoco_ppo import configs
 
 def build_and_train(env_id="HalfCheetah-Directional-v0", run_ID=0, cuda_idx=None, n_parallel=6):
     affinity = dict(cuda_idx=cuda_idx, workers_cpus=list(range(n_parallel)), alternating=True)
-
+    env_args = dict(id=env_id)
+    env_args[RLPYT_WRAPPER_KEY] = [ClipActionsWrapper]
     sampler = AlternatingSampler(
         EnvCls=gym_make,
-        env_kwargs=dict(id=env_id),
-        eval_env_kwargs=dict(id=env_id),
+        env_kwargs=env_args,
+        eval_env_kwargs=env_args,
         batch_T=256,  # One time-step per sampler iteration.
         batch_B=8,  # One environment (i.e. sampler Batch dimension).
         max_decorrelation_steps=100,
@@ -39,8 +41,8 @@ def build_and_train(env_id="HalfCheetah-Directional-v0", run_ID=0, cuda_idx=None
     #
     # sampler = SerialSampler(
     #     EnvCls=gym_make,
-    #     env_kwargs=dict(id=env_id),
-    #     eval_env_kwargs=dict(id=env_id),
+    #     env_kwargs=env_args,
+    #     eval_env_kwargs=env_args,
     #     batch_T=256,  # One time-step per sampler iteration.
     #     batch_B=8,  # One environment (i.e. sampler Batch dimension).
     #     max_decorrelation_steps=0,

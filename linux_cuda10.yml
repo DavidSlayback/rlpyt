@@ -14,3 +14,5 @@ dependencies:
 - pip:
   - atari-py
   - pyprind  # progbar.
+  - gym-miniworld
+  - gym-minigrid
