@@ -4,6 +4,20 @@ import torch.distributed as dist
 from rlpyt.utils.tensor import infer_leading_dims
 from typing import Tuple
 
+class ObsScaler(torch.nn.Module):
+    """
+    Basic observation scaler.
+    """
+    def __init__(self, obs_mean, obs_scale):
+        super().__init__()
+        self.obs_mean = obs_mean
+        self.obs_scale = obs_scale
+    def forward(self, x):
+        x = x.float()
+        x.sub_(self.obs_mean)
+        x.divide_(self.obs_scale)
+        return x
+
 
 class RunningMeanStdModel(torch.nn.Module):
 
