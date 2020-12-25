@@ -65,7 +65,7 @@ class MinigridGRUModel(nn.Module):
         # Infer (presence of) leading dimensions: [T,B], [B], or [].
         lead_dim, T, B, img_shape = infer_leading_dims(grid, 3)
         fc_out = self.conv(grid.view(T * B, *img_shape))
-        init_rnn_state = None if init_rnn_state is None else tuple(init_rnn_state)
+        init_rnn_state = None if init_rnn_state is None else init_rnn_state.h
         lstm_out, hn = self.lstm(fc_out.view(T, B, -1), init_rnn_state)
         pi = F.softmax(self.pi(lstm_out.view(T * B, -1)), dim=-1)
         v = self.value(lstm_out.view(T *B , -1)).squeeze(-1)
