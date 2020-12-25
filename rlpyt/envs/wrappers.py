@@ -199,5 +199,6 @@ class RenameImageObsWrapper(gym.ObservationWrapper):
         observation['obs'] = observation.pop('image')
         return observation
 
-RLPYT_MINIGRID_WRAPPERS = [RenameImageObsWrapper, PixelFormatChwWrapper]
+from gym_minigrid.wrappers import ImgObsWrapper
+RLPYT_MINIGRID_WRAPPERS = [ImgObsWrapper, PixelFormatChwWrapper]
 RLPYT_RECORDING_MINIGRID_WRAPPERS = [MinigridRecordingWrapper] + RLPYT_MINIGRID_WRAPPERS
