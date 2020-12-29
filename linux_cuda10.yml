@@ -16,3 +16,4 @@ dependencies:
   - pyprind  # progbar.
   - gym-miniworld
   - gym-minigrid
+  - gym3
