@@ -1,0 +1,3 @@
+[submodule "gym-miniworld"]
+	path = gym-miniworld
+	url = https://github.com/maximecb/gym-miniworld.git

@@ -22,6 +22,13 @@ CONVNET_A3C = {
     'paddings': [0, 1],
     'use_maxpool': False}  # Impala/A3C/A2C for Atari
 
+CONVNET_IMPALA_LARGE = {
+    'channels': [16, 32, 32],
+    'kernel_sizes': [3, 3, 3],
+    'strides': [1, 1, 1],
+    'paddings': [1, 1, 1],
+    'use_maxpool': False}  # IMPALA large model residual block
+
 CONVNET_DOOM = {
     'channels': [32, 64, 128],
     'kernel_sizes': [8, 4, 3],

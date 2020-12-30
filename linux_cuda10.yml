@@ -14,6 +14,7 @@ dependencies:
 - pip:
   - atari-py
   - pyprind  # progbar.
-  - gym-miniworld
+  - -e ./gym-miniworld
   - gym-minigrid
   - gym3
+  - pyglet==1.5.13
