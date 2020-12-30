@@ -27,7 +27,7 @@ class DiscreteIntraOptionPolicy(nn.Module):
         self.pi_w = nn.Sequential(pi_w, View((num_options, num_actions)))
 
     def forward(self, x):
-        return self.pi_w(x)
+        return torch.softmax(self.pi_w(x), dim=-1)
 
 class ContinuousIntraOptionPolicy(nn.Module):
     """Option-Critic intra-option policy model for continuous action spaces

@@ -34,7 +34,7 @@ CONVNET_DQN = {
     'kernel_sizes': [8, 4, 3],
     'strides': [4, 2, 1],
     'paddings': [0, 1, 1],
-    'use_maxpool': False}  # DQN for Atari
+    'use_maxpool': False}  # DQN for Atari. IOC/TDEOC also use this for gym-miniworld
 
 MLP_DDPG = {
     'hidden_sizes': [400, 300]
