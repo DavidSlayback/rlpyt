@@ -22,9 +22,9 @@ from rlpyt.utils.logging.context import logger_context
 from rlpyt.experiments.configs.mujoco.pg.mujoco_ppo import configs
 
 
-def build_and_train(env_id="MiniWorld-OneRoomTransfer-v0", run_ID=0, cuda_idx=None, n_parallel=6):
+def build_and_train(env_id="procgen:procgen-coinrun-v0", run_ID=0, cuda_idx=None, n_parallel=6):
     affinity = dict(cuda_idx=cuda_idx, workers_cpus=list(range(n_parallel)), alternating=True)
-    env_args = dict(id=env_id)
+    env_args = dict(id=env_id, start_level=0, num_levels=1)
     env_args[RLPYT_WRAPPER_KEY] = [TransposeImageWrapper]
     sampler = AlternatingSampler(
         EnvCls=gym_make,
@@ -82,11 +82,11 @@ def build_and_train(env_id="MiniWorld-OneRoomTransfer-v0", run_ID=0, cuda_idx=No
 
 
 if __name__ == "__main__":
-    import multiprocessing as mp
-    mp.set_start_method('spawn')
+    # import multiprocessing as mp
+    # mp.set_start_method('spawn')
     import argparse
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--env_id', help='environment ID', default='MiniWorld-OneRoomTransfer-v0')
+    parser.add_argument('--env_id', help='environment ID', default='procgen:procgen-coinrun-v0')
     parser.add_argument('--run_ID', help='run identifier (logging)', type=int, default=0)
     parser.add_argument('--cuda_idx', help='gpu to use ', type=int, default=0)
     args = parser.parse_args()

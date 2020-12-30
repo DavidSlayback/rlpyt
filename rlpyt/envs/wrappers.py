@@ -1,6 +1,5 @@
 import gym
 from gym import ObservationWrapper, ActionWrapper, Wrapper, RewardWrapper, spaces
-from .gym import RLPYT_WRAPPER_KEY
 import json
 import os
 from os.path import join
@@ -220,3 +219,4 @@ class TransposeImageWrapper(gym.ObservationWrapper):
 
 RLPYT_MINIWORLD_WRAPPERS = [TransposeImageWrapper]
 
+RLPYT_WRAPPER_KEY = "RLPYT_Extra_Wrappers"

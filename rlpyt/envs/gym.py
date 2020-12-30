@@ -9,10 +9,10 @@ import gym_minigrid
 import gym_miniworld
 
 from rlpyt.envs.base import EnvSpaces, EnvStep
+from rlpyt.envs.wrappers import RLPYT_WRAPPER_KEY
 from rlpyt.spaces.gym_wrapper import GymSpaceWrapper
 from rlpyt.utils.collections import is_namedtuple_class
 
-RLPYT_WRAPPER_KEY = "RLPYT_Extra_Wrappers"
 
 class GymEnvWrapper(Wrapper):
     """Gym-style wrapper for converting the Openai Gym interface to the

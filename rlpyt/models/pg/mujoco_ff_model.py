@@ -36,24 +36,24 @@ class MujocoFfModel(torch.nn.Module):
         if baselines_init:
             inits_mu = (np.sqrt(2), 0.01)
             inits_v = (np.sqrt(2), 1.)
-        mu_mlp = MlpModel(
+        mu_mlp = torch.jit.script(MlpModel(
             input_size=input_size,
             hidden_sizes=hidden_sizes,
             output_size=action_size,
             nonlinearity=hidden_nonlinearity,
             inits=inits_mu
-        )
+        ))
         if mu_nonlinearity is not None:
             self.mu = torch.nn.Sequential(mu_mlp, mu_nonlinearity())
         else:
             self.mu = mu_mlp
-        self.v = MlpModel(
+        self.v = torch.jit.script(MlpModel(
             input_size=input_size,
             hidden_sizes=hidden_sizes,
             output_size=1,
             nonlinearity=hidden_nonlinearity,
             inits=inits_v
-        )
+        ))
         self.log_std = torch.nn.Parameter(init_log_std * torch.ones(action_size))
         if normalize_observation:
             self.obs_rms = RunningMeanStdModel(observation_shape)

@@ -12,7 +12,8 @@ example.
 
 from rlpyt.samplers.serial.sampler import SerialSampler
 from rlpyt.samplers.parallel.gpu.alternating_sampler import AlternatingSampler
-from rlpyt.envs.gym import make as gym_make, RLPYT_WRAPPER_KEY
+from rlpyt.envs.gym import make as gym_make
+from rlpyt.envs.wrappers import RLPYT_WRAPPER_KEY
 from rlpyt.algos.pg.ppo import PPO
 from rlpyt.agents.pg.minigrid import MinigridFfAgent, MinigridGruAgent, AlternatingMinigridGruAgent
 from rlpyt.runners.minibatch_rl import MinibatchRlEval, MinibatchRl

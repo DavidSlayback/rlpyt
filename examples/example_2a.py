@@ -12,8 +12,8 @@ example.
 
 from rlpyt.samplers.serial.sampler import SerialSampler
 from rlpyt.samplers.parallel.gpu.alternating_sampler import AlternatingSampler
-from rlpyt.envs.gym import make as gym_make, RLPYT_WRAPPER_KEY
-from rlpyt.envs.wrappers import ClipActionsWrapper
+from rlpyt.envs.gym import make as gym_make
+from rlpyt.envs.wrappers import ClipActionsWrapper, RLPYT_WRAPPER_KEY
 from rlpyt.algos.qpg.sac import SAC
 from rlpyt.agents.qpg.sac_agent import SacAgent
 from rlpyt.algos.pg.ppo import PPO

@@ -3,11 +3,14 @@ import numpy as np
 import gym
 from gym import Wrapper
 from gym.wrappers.time_limit import TimeLimit
+import paper_gym
+import gym_minigrid
+import gym_miniworld
 
 from rlpyt.envs.base import EnvSpaces, EnvStep
 from rlpyt.spaces.gym_wrapper_schema import GymSpaceWrapper
 from rlpyt.utils.collections import NamedTupleSchema
-
+from rlpyt.envs.wrappers import RLPYT_WRAPPER_KEY
 
 class GymEnvWrapper(Wrapper):
     """Gym-style wrapper for converting the Openai Gym interface to the
@@ -163,8 +166,11 @@ def make(*args, info_example=None, **kwargs):
     rlpyt's ``GymEnvWrapper``, using ``gym.make(*args, **kwargs)``.  If
     ``info_example`` is not ``None``, will include the ``EnvInfoWrapper``.
     """
+    wrapper_classes = kwargs.pop(RLPYT_WRAPPER_KEY, [])  # Pop a list of gym wrappers (or None)
+    env = gym.make(*args, **kwargs)
+    for wrapper_class in wrapper_classes:
+        env = wrapper_class(env)
     if info_example is None:
-        return GymEnvWrapper(gym.make(*args, **kwargs))
+        return GymEnvWrapper(env)
     else:
-        return GymEnvWrapper(EnvInfoWrapper(
-            gym.make(*args, **kwargs), info_example))
+        return GymEnvWrapper(EnvInfoWrapper(env, info_example))
