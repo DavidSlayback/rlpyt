@@ -13,10 +13,10 @@ example.
 from rlpyt.samplers.serial.sampler import SerialSampler
 from rlpyt.samplers.parallel.gpu.sampler import GpuSampler
 from rlpyt.samplers.parallel.gpu.alternating_sampler import AlternatingSampler
-from rlpyt.envs.gym_schema import make as gym_make
+from rlpyt.envs.gym import make as gym_make
 from rlpyt.envs.wrappers import TransposeImageWrapper, RLPYT_WRAPPER_KEY
 from rlpyt.algos.pg.ppo import PPO
-from rlpyt.agents.pg.miniworld import MiniWorldFfAgent as Agent
+from rlpyt.agents.pg.procgen import ProcgenFfAgent as Agent
 from rlpyt.runners.minibatch_rl import MinibatchRl
 from rlpyt.utils.logging.context import logger_context
 from rlpyt.experiments.configs.mujoco.pg.mujoco_ppo import configs
