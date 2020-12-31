@@ -37,16 +37,13 @@ config = dict(
 configs["ppo_1M_serial"] = config
 
 config = copy.deepcopy(configs["ppo_1M_serial"])
-
-config = copy.deepcopy(configs["ppo_1M_serial"])
 config["sampler"]["batch_B"] = 8
 config["sampler"]["batch_T"] = 256
 configs["ppo_1M_cpu"] = config
-
+config = copy.deepcopy(configs["ppo_1M_serial"])
 config["algo"]["minibatches"] = 1
 config["algo"]["epochs"] = 32
 configs["ppo_32ep_1mb"] = config
-
 config = dict(
     agent=dict(),
     algo=dict(
@@ -86,3 +83,8 @@ config = dict(
 )
 
 configs["ppo_1M_halfcheetahtransfer"] = config
+config = copy.deepcopy(configs["ppo_1M_halfcheetahtransfer"])
+config["env"] = dict(id='TMaze-TwoGoal-v0', **env_args)
+config["algo"]["normalize_rewards"] = None
+config["runner"]["log_traj_window"] = 20
+configs["ppo_1M_TMaze"] = config

@@ -68,6 +68,14 @@ configs["a2oc_1M_halfcheetahtransfer"] = config
 config = copy.deepcopy(config)
 config["model"]["use_interest"] = True
 configs["a2ioc_1M_halfcheetahtransfer"] = config
+config = copy.deepcopy(configs["a2oc_1M_halfcheetahtransfer"])
+config["env"] = dict(id='TMaze-TwoGoal-v0', **env_args)
+config["algo"]["normalize_rewards"] = None
+config["runner"]["log_traj_window"] = 20
+configs["a2oc_1M_TMaze"] = config
+config = copy.deepcopy(config)
+config["model"]["use_interest"] = True
+configs["a2ioc_1M_TMaze"] = config
 
 
 

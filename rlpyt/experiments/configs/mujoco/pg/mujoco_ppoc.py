@@ -37,12 +37,11 @@ config = dict(
 configs["ppoc_1M_serial"] = config
 
 config = copy.deepcopy(configs["ppoc_1M_serial"])
-
-config = copy.deepcopy(configs["ppoc_1M_serial"])
 config["sampler"]["batch_B"] = 8
 config["sampler"]["batch_T"] = 256
 configs["ppoc_1M_cpu"] = config
 
+config = copy.deepcopy(configs["ppoc_1M_serial"])
 config["algo"]["minibatches"] = 1
 config["algo"]["epochs"] = 32
 configs["ppoc_32ep_1mb"] = config
@@ -95,3 +94,11 @@ configs["ppoc_1M_halfcheetahtransfer"] = config
 config = copy.deepcopy(config)
 config["model"]["use_interest"] = True
 configs["ppioc_1M_halfcheetahtransfer"] = config
+config = copy.deepcopy(configs["ppoc_1M_halfcheetahtransfer"])
+config["env"] = dict(id='TMaze-TwoGoal-v0', **env_args)
+config["algo"]["normalize_rewards"] = None
+config["runner"]["log_traj_window"] = 20
+configs["ppoc_1M_TMaze"] = config
+config = copy.deepcopy(config)
+config["model"]["use_interest"] = True
+configs["ppioc_1M_TMaze"] = config

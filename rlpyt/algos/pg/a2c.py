@@ -58,7 +58,7 @@ class A2C(PolicyGradientAlgo):
             loss=loss.item(),
             pi_loss=pi_loss.item(),
             value_loss=value_loss.item(),
-            gradNorm=torch.tensor(grad_norm).item(),  # backwards compatible,
+            gradNorm=grad_norm.clone().detach().item(),  # backwards compatible,
             entropy=entropy.item(),
             perplexity=perplexity.item(),
         )
