@@ -199,7 +199,7 @@ class RenameImageObsWrapper(gym.ObservationWrapper):
         return observation
 
 from gym_minigrid.wrappers import ImgObsWrapper
-RLPYT_MINIGRID_WRAPPERS = [ImgObsWrapper, PixelFormatChwWrapper]
+RLPYT_MINIGRID_WRAPPERS = [ImgObsWrapper]
 RLPYT_RECORDING_MINIGRID_WRAPPERS = [MinigridRecordingWrapper] + RLPYT_MINIGRID_WRAPPERS
 
 # Miniworld

@@ -15,7 +15,7 @@ from rlpyt.samplers.parallel.gpu.alternating_sampler import AlternatingSampler
 from rlpyt.envs.gym import make as gym_make
 from rlpyt.envs.wrappers import RLPYT_WRAPPER_KEY
 from rlpyt.algos.pg.ppo import PPO
-from rlpyt.agents.pg.minigrid import MinigridFfAgent, MinigridGruAgent, AlternatingMinigridGruAgent
+from rlpyt.agents.pg.minigrid import MinigridFfAgent, MinigridGruAgent, AlternatingMinigridGruAgent, AlternatingMinigridBabyAIAgent, AlternatingMinigridAllenActAgent
 from rlpyt.runners.minibatch_rl import MinibatchRlEval, MinibatchRl
 from rlpyt.utils.logging.context import logger_context
 from rlpyt.experiments.configs.minigrid.pg.minigrid_ff_ppo import configs
@@ -50,7 +50,7 @@ def build_and_train(env_id="MiniGrid-FourRooms-v0", run_ID=0, cuda_idx=None, n_p
     # )
 
     algo = PPO(clip_vf_loss=False, normalize_rewards=None)  # Run with defaults.
-    agent = AlternatingMinigridGruAgent()
+    agent = AlternatingMinigridBabyAIAgent()
     runner = MinibatchRl(
         algo=algo,
         agent=agent,
@@ -59,7 +59,7 @@ def build_and_train(env_id="MiniGrid-FourRooms-v0", run_ID=0, cuda_idx=None, n_p
         log_interval_steps=1e3,
         affinity=affinity,
         transfer=False,
-        log_traj_window=40
+        log_traj_window=100
     )
     config = dict(env_id=env_id)
     name = "ppo_" + env_id
