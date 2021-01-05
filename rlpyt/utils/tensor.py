@@ -46,7 +46,7 @@ def valid_mean(tensor, valid=None, dim=None):
     return (tensor * valid).sum(dim=dim) / valid.sum(dim=dim)
 
 
-def infer_leading_dims(tensor, dim):
+def infer_leading_dims(tensor, dim: int):
     """Looks for up to two leading dimensions in ``tensor``, before
     the data dimensions, of which there are assumed to be ``dim`` number.
     For use at beginning of model's ``forward()`` method, which should 

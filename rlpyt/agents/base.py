@@ -86,6 +86,7 @@ class BaseAgent:
         self.env_model_kwargs = self.make_env_to_model_kwargs(env_spaces)
         self.model = self.ModelCls(**self.env_model_kwargs,
             **self.model_kwargs)
+        # self.model = torch.jit.script(self.model)  # Compile model
         if share_memory:
             self.model.share_memory()
             # Store the shared_model (CPU) under a separate name, in case the

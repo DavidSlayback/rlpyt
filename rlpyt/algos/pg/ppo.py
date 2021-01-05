@@ -21,6 +21,7 @@ class PPO(PolicyGradientAlgo):
     estimation.  Uses clipped likelihood ratios in the policy loss.
     """
 
+    NAME = "PPO"
     def __init__(
             self,
             discount=0.99,

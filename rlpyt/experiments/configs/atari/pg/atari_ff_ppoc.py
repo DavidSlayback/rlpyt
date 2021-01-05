@@ -14,9 +14,10 @@ config = dict(
         linear_lr_schedule=True,
         minibatches=4,
         epochs=4,
+        delib_cost=0.
     ),
-    env=dict(game="pong"),
-    model=dict(fc_sizes=512),
+    env=dict(game="montezuma_revenge"),
+    model=dict(option_size=4, use_interest=False, fc_sizes=512),
     optim=dict(),
     runner=dict(
         n_steps=1e7,
@@ -29,10 +30,7 @@ config = dict(
     ),
 )
 
-configs["0"] = config
+configs["montezuma"] = config
 config = copy.deepcopy(config)
-config["env"]["game"] = "montezuma_revenge"
-configs['montezuma'] = config
-config = copy.deepcopy(config)
-config["model"]["fc_sizes"] = 2048  # Match 4 options worth of parameters
-configs['montezuma_4x'] = config
+config["model"]["use_interest"] = True
+configs['montezuma_interest'] = config

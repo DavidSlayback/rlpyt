@@ -22,6 +22,7 @@ class PPOC(OCAlgo):
     estimation.  Uses clipped likelihood ratios in the low-level policy loss.
     """
 
+    NAME = "PPOC"
     def __init__(
             self,
             discount=0.99,

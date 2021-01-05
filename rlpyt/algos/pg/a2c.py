@@ -16,6 +16,7 @@ class A2C(PolicyGradientAlgo):
     computed by generalized advantage estimation.
     """
 
+    NAME = "A2C"
     def __init__(
             self,
             discount=0.99,

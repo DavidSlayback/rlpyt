@@ -9,10 +9,6 @@ from rlpyt.utils.buffer import buffer_to, buffer_method
 from rlpyt.utils.collections import namedarraytuple
 from rlpyt.utils.misc import iterate_mb_idxs
 
-LossInputs = namedarraytuple("LossInputs",
-    ["agent_inputs", "action", "option", "prev_option", "return_", "advantage", "termination_advantage",
-     "valid", "not_init_states", "old_dist_info_o", "old_dist_info_omega", "old_q"])
-
 
 class A2OC(OCAlgo):
     """
@@ -21,6 +17,7 @@ class A2OC(OCAlgo):
     computed by generalized advantage estimation.
     """
 
+    NAME = "A2OC"
     def __init__(
             self,
             discount=0.99,
