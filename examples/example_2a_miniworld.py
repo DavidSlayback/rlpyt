@@ -26,17 +26,17 @@ def build_and_train(env_id="MiniWorld-OneRoomTransfer-v0", run_ID=0, cuda_idx=No
     affinity = dict(cuda_idx=cuda_idx, workers_cpus=list(range(n_parallel)), alternating=True)
     env_args = dict(id=env_id)
     env_args[RLPYT_WRAPPER_KEY] = [TransposeImageWrapper]
-    sampler = AlternatingSampler(
-        EnvCls=gym_make,
-        env_kwargs=env_args,
-        eval_env_kwargs=env_args,
-        batch_T=256,  # One time-step per sampler iteration.
-        batch_B=12,  # One environment (i.e. sampler Batch dimension).
-        max_decorrelation_steps=100,
-        # eval_n_envs=5,
-        # eval_max_steps=int(25e3),
-        # eval_max_trajectories=30
-    )
+    # sampler = AlternatingSampler(
+    #     EnvCls=gym_make,
+    #     env_kwargs=env_args,
+    #     eval_env_kwargs=env_args,
+    #     batch_T=256,  # One time-step per sampler iteration.
+    #     batch_B=12,  # One environment (i.e. sampler Batch dimension).
+    #     max_decorrelation_steps=100,
+    #     # eval_n_envs=5,
+    #     # eval_max_steps=int(25e3),
+    #     # eval_max_trajectories=30
+    # )
     # sampler = GpuSampler(
     #     EnvCls=gym_make,
     #     env_kwargs=env_args,
@@ -49,17 +49,17 @@ def build_and_train(env_id="MiniWorld-OneRoomTransfer-v0", run_ID=0, cuda_idx=No
     #     # eval_max_trajectories=30
     # )
     #
-    # sampler = SerialSampler(
-    #     EnvCls=gym_make,
-    #     env_kwargs=env_args,
-    #     eval_env_kwargs=env_args,
-    #     batch_T=256,  # One time-step per sampler iteration.
-    #     batch_B=8,  # One environment (i.e. sampler Batch dimension).
-    #     max_decorrelation_steps=0,
-    #     # eval_n_envs=2,
-    #     # eval_max_steps=int(51e2),
-    #     # eval_max_trajectories=5,
-    # )
+    sampler = SerialSampler(
+        EnvCls=gym_make,
+        env_kwargs=env_args,
+        eval_env_kwargs=env_args,
+        batch_T=256,  # One time-step per sampler iteration.
+        batch_B=8,  # One environment (i.e. sampler Batch dimension).
+        max_decorrelation_steps=0,
+        # eval_n_envs=2,
+        # eval_max_steps=int(51e2),
+        # eval_max_trajectories=5,
+    )
 
     algo = PPO(clip_vf_loss=False, normalize_rewards=None)  # Run with defaults.
     agent = Agent()
