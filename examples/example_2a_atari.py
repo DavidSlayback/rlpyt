@@ -27,29 +27,29 @@ def build_and_train(game="montezuma_revenge", run_ID=0, cuda_idx=None, n_paralle
     affinity = dict(cuda_idx=cuda_idx, workers_cpus=list(range(n_parallel)), alternating=True)
     env_args = dict(id=game)
     # env_args[RLPYT_WRAPPER_KEY] = [ClipActionsWrapper]
-    sampler = AlternatingSampler(
-        EnvCls=AtariEnv,
-        TrajInfoCls=AtariTrajInfo,
-        env_kwargs=dict(game=game),
-        batch_T=64,  # One time-step per sampler iteration.
-        batch_B=36,  # One environment (i.e. sampler Batch dimension).
-        max_decorrelation_steps=1000,
-        # eval_n_envs=5,
-        # eval_max_steps=int(25e3),
-        # eval_max_trajectories=30
-    )
-    #
-    # sampler = SerialSampler(
+    # sampler = AlternatingSampler(
     #     EnvCls=AtariEnv,
     #     TrajInfoCls=AtariTrajInfo,
     #     env_kwargs=dict(game=game),
-    #     batch_T=256,  # One time-step per sampler iteration.
-    #     batch_B=8,  # One environment (i.e. sampler Batch dimension).
+    #     batch_T=64,  # One time-step per sampler iteration.
+    #     batch_B=36,  # One environment (i.e. sampler Batch dimension).
     #     max_decorrelation_steps=1000,
-    #     # eval_n_envs=2,
-    #     # eval_max_steps=int(51e2),
-    #     # eval_max_trajectories=5,
+    #     # eval_n_envs=5,
+    #     # eval_max_steps=int(25e3),
+    #     # eval_max_trajectories=30
     # )
+    #
+    sampler = SerialSampler(
+        EnvCls=AtariEnv,
+        TrajInfoCls=AtariTrajInfo,
+        env_kwargs=dict(game=game),
+        batch_T=256,  # One time-step per sampler iteration.
+        batch_B=8,  # One environment (i.e. sampler Batch dimension).
+        max_decorrelation_steps=1000,
+        # eval_n_envs=2,
+        # eval_max_steps=int(51e2),
+        # eval_max_trajectories=5,
+    )
 
     # algo = PPO(clip_vf_loss=False, normalize_rewards=None)  # Run with defaults.
     algo = A2OC(normalize_rewards=None)

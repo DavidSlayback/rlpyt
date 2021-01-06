@@ -13,7 +13,7 @@ example.
 from rlpyt.samplers.serial.sampler import SerialSampler
 from rlpyt.samplers.parallel.gpu.sampler import GpuSampler
 from rlpyt.samplers.parallel.gpu.alternating_sampler import AlternatingSampler
-from rlpyt.envs.gym import make as gym_make
+from rlpyt.envs.gym_procgen.procgen_env import ProcgenEnv
 from rlpyt.envs.wrappers import TransposeImageWrapper, RLPYT_WRAPPER_KEY
 from rlpyt.algos.pg.ppo import PPO
 from rlpyt.agents.pg.procgen import ProcgenFfAgent as Agent
@@ -22,12 +22,11 @@ from rlpyt.utils.logging.context import logger_context
 from rlpyt.experiments.configs.mujoco.pg.mujoco_ppo import configs
 
 
-def build_and_train(env_id="procgen:procgen-coinrun-v0", run_ID=0, cuda_idx=None, n_parallel=6):
+def build_and_train(game="fruitbot", run_ID=0, cuda_idx=None, n_parallel=6):
     affinity = dict(cuda_idx=cuda_idx, workers_cpus=list(range(n_parallel)), alternating=True)
-    env_args = dict(id=env_id, start_level=0, num_levels=1)
-    env_args[RLPYT_WRAPPER_KEY] = [TransposeImageWrapper]
+    env_args = dict(game=game, start_level=0, num_levels=1)
     sampler = AlternatingSampler(
-        EnvCls=gym_make,
+        EnvCls=ProcgenEnv,
         env_kwargs=env_args,
         eval_env_kwargs=env_args,
         batch_T=256,  # One time-step per sampler iteration.
@@ -38,7 +37,7 @@ def build_and_train(env_id="procgen:procgen-coinrun-v0", run_ID=0, cuda_idx=None
         # eval_max_trajectories=30
     )
     # sampler = GpuSampler(
-    #     EnvCls=gym_make,
+    #     EnvCls=ProcgenEnv,
     #     env_kwargs=env_args,
     #     eval_env_kwargs=env_args,
     #     batch_T=256,  # One time-step per sampler iteration.
@@ -50,7 +49,7 @@ def build_and_train(env_id="procgen:procgen-coinrun-v0", run_ID=0, cuda_idx=None
     # )
     #
     # sampler = SerialSampler(
-    #     EnvCls=gym_make,
+    #     EnvCls=ProcgenEnv,
     #     env_kwargs=env_args,
     #     eval_env_kwargs=env_args,
     #     batch_T=256,  # One time-step per sampler iteration.
@@ -70,13 +69,13 @@ def build_and_train(env_id="procgen:procgen-coinrun-v0", run_ID=0, cuda_idx=None
         n_steps=1e6,
         log_interval_steps=1e3,
         affinity=affinity,
-        transfer=True,
-        transfer_iter=150,
-        log_traj_window=10
+        # transfer=True,
+        # transfer_iter=150,
+        # log_traj_window=10
     )
-    config = dict(env_id=env_id)
-    name = "ppo_" + env_id
-    log_dir = "example_2a_miniworld"
+    config = dict(game=game)
+    name = "ppo_" + game
+    log_dir = "example_2a_fruitbot"
     with logger_context(log_dir, run_ID, name, config):
         runner.train()
 
@@ -86,12 +85,12 @@ if __name__ == "__main__":
     # mp.set_start_method('spawn')
     import argparse
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--env_id', help='environment ID', default='procgen:procgen-coinrun-v0')
+    parser.add_argument('--game', help='Procgen game', default='fruitbot')
     parser.add_argument('--run_ID', help='run identifier (logging)', type=int, default=0)
     parser.add_argument('--cuda_idx', help='gpu to use ', type=int, default=0)
     args = parser.parse_args()
     build_and_train(
-        env_id=args.env_id,
+        game=args.game,
         run_ID=args.run_ID,
         cuda_idx=args.cuda_idx,
     )
