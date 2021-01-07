@@ -114,6 +114,8 @@ class ProcgenFfModel(torch.nn.Module):
         self.pi = torch.jit.script(layer_init(torch.nn.Linear(self.conv.output_size, output_size), init_pi))
         self.value = torch.jit.script(layer_init(torch.nn.Linear(self.conv.output_size, 1), init_v))
         self.conv = torch.jit.script(self.conv)
+        # self.pi = layer_init(torch.nn.Linear(self.conv.output_size, output_size), init_pi)
+        # self.value = layer_init(torch.nn.Linear(self.conv.output_size, 1), init_v)
 
     def forward(self, image, prev_action, prev_reward):
         """

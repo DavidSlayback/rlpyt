@@ -124,19 +124,18 @@ class SerialVecSampler(SerialSampler):
             traj_info_kwargs=None,
             rank=0,
             world_size=1,
-            ):
+    ):
         """Store the input arguments.  Instantiate the specified number of environment
-        instances (``batch_B``).  Initialize the agent, and pre-allocate a memory buffer
-        to hold the samples collected in each batch.  Applies ``traj_info_kwargs`` settings
-        to the `TrajInfoCls` by direct class attribute assignment.  Instantiates the Collector
-        and, if applicable, the evaluation Collector.
+        instances (``batch_B``). In this case, assume environment class itself takes care of multiple instances.
+        Initialize the agent, and pre-allocate a memory buffer to hold the samples collected in each batch.
+        Applies ``traj_info_kwargs`` settings to the `TrajInfoCls` by direct class attribute assignment.
+        Instantiates the Collector and, if applicable, the evaluation Collector.
 
         Returns a structure of inidividual examples for data fields such as `observation`,
         `action`, etc, which can be used to allocate a replay buffer.
         """
         B = self.batch_spec.B
-        envs = [self.EnvCls(num_envs=B, **self.env_kwargs)]
-        # envs = [self.EnvCls(**self.env_kwargs) for _ in range(B)]
+        envs = [self.EnvCls(num_envs=B, **self.env_kwargs)]  # List of 1
 
         set_envs_seeds(envs, seed)  # Random seed made in runner.
 
