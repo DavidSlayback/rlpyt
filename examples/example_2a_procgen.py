@@ -15,8 +15,8 @@ from rlpyt.samplers.parallel.gpu.sampler import GpuSampler
 from rlpyt.samplers.parallel.gpu.alternating_sampler import AlternatingSampler
 from rlpyt.envs.gym_procgen.procgen_env import ProcgenEnv
 from rlpyt.envs.wrappers import TransposeImageWrapper, RLPYT_WRAPPER_KEY
-from rlpyt.algos.pg.ppo import PPO
-from rlpyt.agents.pg.procgen import ProcgenFfAgent as Agent
+from rlpyt.algos.pg.ppoc import PPOC
+from rlpyt.agents.pg.procgen import ProcgenOcAgent as Agent
 from rlpyt.runners.minibatch_rl import MinibatchRl
 from rlpyt.utils.logging.context import logger_context
 from rlpyt.experiments.configs.mujoco.pg.mujoco_ppo import configs
@@ -25,17 +25,17 @@ from rlpyt.experiments.configs.mujoco.pg.mujoco_ppo import configs
 def build_and_train(game="fruitbot", run_ID=0, cuda_idx=None, n_parallel=6):
     affinity = dict(cuda_idx=cuda_idx, workers_cpus=list(range(n_parallel)), alternating=True)
     env_args = dict(game=game, start_level=0, num_levels=1)
-    sampler = AlternatingSampler(
-        EnvCls=ProcgenEnv,
-        env_kwargs=env_args,
-        eval_env_kwargs=env_args,
-        batch_T=256,  # One time-step per sampler iteration.
-        batch_B=12,  # One environment (i.e. sampler Batch dimension).
-        max_decorrelation_steps=100,
-        # eval_n_envs=5,
-        # eval_max_steps=int(25e3),
-        # eval_max_trajectories=30
-    )
+    # sampler = AlternatingSampler(
+    #     EnvCls=ProcgenEnv,
+    #     env_kwargs=env_args,
+    #     eval_env_kwargs=env_args,
+    #     batch_T=256,  # One time-step per sampler iteration.
+    #     batch_B=12,  # One environment (i.e. sampler Batch dimension).
+    #     max_decorrelation_steps=100,
+    #     # eval_n_envs=5,
+    #     # eval_max_steps=int(25e3),
+    #     # eval_max_trajectories=30
+    # )
     # sampler = GpuSampler(
     #     EnvCls=ProcgenEnv,
     #     env_kwargs=env_args,
@@ -48,20 +48,20 @@ def build_and_train(game="fruitbot", run_ID=0, cuda_idx=None, n_parallel=6):
     #     # eval_max_trajectories=30
     # )
     #
-    # sampler = SerialSampler(
-    #     EnvCls=ProcgenEnv,
-    #     env_kwargs=env_args,
-    #     eval_env_kwargs=env_args,
-    #     batch_T=256,  # One time-step per sampler iteration.
-    #     batch_B=8,  # One environment (i.e. sampler Batch dimension).
-    #     max_decorrelation_steps=0,
-    #     # eval_n_envs=2,
-    #     # eval_max_steps=int(51e2),
-    #     # eval_max_trajectories=5,
-    # )
+    sampler = SerialSampler(
+        EnvCls=ProcgenEnv,
+        env_kwargs=env_args,
+        eval_env_kwargs=env_args,
+        batch_T=256,  # One time-step per sampler iteration.
+        batch_B=8,  # One environment (i.e. sampler Batch dimension).
+        max_decorrelation_steps=0,
+        # eval_n_envs=2,
+        # eval_max_steps=int(51e2),
+        # eval_max_trajectories=5,
+    )
 
-    algo = PPO(clip_vf_loss=False, normalize_rewards=None)  # Run with defaults.
-    agent = Agent()
+    algo = PPOC(clip_vf_loss=False, normalize_rewards=None)  # Run with defaults.
+    agent = Agent(model_kwargs={'option_size': 2})
     runner = MinibatchRl(
         algo=algo,
         agent=agent,

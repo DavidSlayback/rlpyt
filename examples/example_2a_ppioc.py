@@ -34,25 +34,25 @@ def build_and_train(env_id="HalfCheetah-Directional-v0", run_ID=0, cuda_idx=None
     #     batch_T=256,  # One time-step per sampler iteration.
     #     batch_B=8,  # One environment (i.e. sampler Batch dimension).
     #     max_decorrelation_steps=100,
+    #     # eval_n_envs=5,
+    #     # eval_max_steps=int(25e3),
+    #     # eval_max_trajectories=30
+    # )
+    # agent = MujocoFfOcAgent(model_kwargs={'option_size': 2, "use_interest": True})
+
+    # sampler = AlternatingSampler(
+    # sampler = AlternatingSampler(
+    #     EnvCls=gym_make,
+    #     env_kwargs=env_args,
+    #     eval_env_kwargs=env_args,
+    #     batch_T=256,  # One time-step per sampler iteration.
+    #     batch_B=8,  # One environment (i.e. sampler Batch dimension).
+    #     max_decorrelation_steps=100,
     #     eval_n_envs=5,
     #     eval_max_steps=int(25e3),
     #     eval_max_trajectories=30
     # )
-    # agent = AlternatingMujocoFfOcAgent(model_kwargs={'option_size': 2, "use_interest": True})
-
-    # sampler = AlternatingSampler(
-    sampler = AlternatingSampler(
-        EnvCls=gym_make,
-        env_kwargs=env_args,
-        eval_env_kwargs=env_args,
-        batch_T=256,  # One time-step per sampler iteration.
-        batch_B=8,  # One environment (i.e. sampler Batch dimension).
-        max_decorrelation_steps=100,
-        eval_n_envs=5,
-        eval_max_steps=int(25e3),
-        eval_max_trajectories=30
-    )
-    agent = AlternatingMujocoFfOcAgent(model_kwargs={'option_size': 2, 'use_interest': True})
+    # agent = AlternatingMujocoFfOcAgent(model_kwargs={'option_size': 2, 'use_interest': True})
 
     # sampler = SerialSampler(
     #     EnvCls=gym_make,
@@ -67,18 +67,18 @@ def build_and_train(env_id="HalfCheetah-Directional-v0", run_ID=0, cuda_idx=None
     # )
     # agent = AlternatingMujocoFfOcAgent(model_kwargs={'option_size': 2, "use_interest": True})
 
-    # sampler = SerialSampler(
-    #     EnvCls=gym_make,
-    #     env_kwargs=env_args,
-    #     eval_env_kwargs=env_args,
-    #     batch_T=256,  # One time-step per sampler iteration.
-    #     batch_B=8,  # One environment (i.e. sampler Batch dimension).
-    #     max_decorrelation_steps=0,
-    #     # eval_n_envs=2,
-    #     # eval_max_steps=int(51e2),
-    #     # eval_max_trajectories=5,
-    # )
-    # agent = AlternatingMujocoFfOcAgent(model_kwargs={'option_size': 2, "use_interest": True})
+    sampler = SerialSampler(
+        EnvCls=gym_make,
+        env_kwargs=env_args,
+        eval_env_kwargs=env_args,
+        batch_T=256,  # One time-step per sampler iteration.
+        batch_B=8,  # One environment (i.e. sampler Batch dimension).
+        max_decorrelation_steps=0,
+        # eval_n_envs=2,
+        # eval_max_steps=int(51e2),
+        # eval_max_trajectories=5,
+    )
+    agent = MujocoFfOcAgent(model_kwargs={'option_size': 2, "use_interest": True})
 
     algo = PPOC(clip_vf_loss=False, normalize_rewards='return')  # Run with defaults.
     runner = MinibatchRl(

@@ -6,6 +6,7 @@ from rlpyt.utils.tensor import infer_leading_dims, restore_leading_dims
 from rlpyt.models.conv2d import Conv2dHeadModel
 from rlpyt.models.params import CONVNET_IMPALA_LARGE  # Used by IOC
 from rlpyt.models.utils import layer_init, conv2d_output_shape, View
+from rlpyt.models.oc import DiscreteIntraOptionPolicy
 
 
 def conv_out_size(self, h, w, c=None):
@@ -90,7 +91,7 @@ class IMPALAConvModel(torch.nn.Module):
 
 class ProcgenFfModel(torch.nn.Module):
     """
-    Feedforward model for MiniWorld agents: a convolutional network feeding an
+    Feedforward model for Procgen agents: a convolutional network feeding an
     MLP with outputs for action probabilities and state-value estimate.
     """
 
@@ -129,15 +130,70 @@ class ProcgenFfModel(torch.nn.Module):
         """
         img = image.type(torch.float)  # Expect torch.uint8 inputs
         img = img.mul_(1. / 255)  # From [0-255] to [0-1], in place.
-
         # Infer (presence of) leading dimensions: [T,B], [B], or [].
         lead_dim, T, B, img_shape = infer_leading_dims(img, 3)
-
         fc_out = self.conv(img.view(T * B, *img_shape))
         pi = F.softmax(self.pi(fc_out), dim=-1)
         v = self.value(fc_out).squeeze(-1)
-
         # Restore leading dimensions: [T,B], [B], or [], as input.
         pi, v = restore_leading_dims((pi, v), lead_dim, T, B)
-
         return pi, v
+
+class ProcgenOcModel(torch.nn.Module):
+    """
+    Feedforward model for Procgen agents: a convolutional network feeding an
+    MLP with outputs for action probabilities and state-value estimate.
+    """
+
+    def __init__(
+            self,
+            image_shape,
+            output_size,
+            option_size,
+            fc_sizes=256,
+            use_maxpool=False,
+            channels=None,  # None uses default.
+            kernel_sizes=None,
+            strides=None,
+            paddings=None,
+            baselines_init=True,
+            init_v=1.,
+            init_pi=.01,
+            use_interest=False
+            ):
+        """Instantiate neural net module according to inputs."""
+        super().__init__()
+        self.use_interest = use_interest
+        self.conv = IMPALAConvModel(image_shape, fc_sizes=fc_sizes)
+        self.pi = torch.jit.script(DiscreteIntraOptionPolicy(self.conv.output_size, option_size, output_size, baselines_init, init_pi))
+        self.q = torch.jit.script(layer_init(torch.nn.Linear(self.conv.output_size, option_size), init_v))
+        self.beta = torch.jit.script(torch.nn.Sequential(layer_init(torch.nn.Linear(self.conv.output_size, option_size), init_v), torch.nn.Sigmoid()))
+        self.pi_omega = torch.jit.script(torch.nn.Sequential(layer_init(torch.nn.Linear(self.conv.output_size, option_size), init_pi), torch.nn.Softmax(-1)))
+        self.pi_omega_I = torch.jit.script(torch.nn.Sequential(layer_init(torch.nn.Linear(self.conv.output_size, option_size), init_v), torch.nn.Sigmoid()))
+        self.conv = torch.jit.script(self.conv)
+
+    def forward(self, image, prev_action, prev_reward):
+        """
+        Compute action probabilities and value estimate from input state.
+        Infers leading dimensions of input: can be [T,B], [B], or []; provides
+        returns with same leading dims.  Convolution layers process as [T*B,
+        *image_shape], with T=1,B=1 when not given.  Expects uint8 images in
+        [0,255] and converts them to float32 in [0,1] (to minimize image data
+        storage and transfer).  Used in both sampler and in algorithm (both
+        via the agent).
+        """
+        img = image.type(torch.float)  # Expect torch.uint8 inputs
+        img = img.mul_(1. / 255)  # From [0-255] to [0-1], in place.
+        # Infer (presence of) leading dimensions: [T,B], [B], or [].
+        lead_dim, T, B, img_shape = infer_leading_dims(img, 3)
+        fc_out = self.conv(img.view(T * B, *img_shape))
+        pi = self.pi(fc_out)
+        q = self.q(fc_out)
+        beta = self.beta(fc_out)
+        pi_omega_I = self.pi_omega(fc_out)
+        if self.use_interest:
+            I = self.pi_omega_I(fc_out)
+            pi_omega_I = pi_omega_I * I  # Normalization in multinomial
+        # Restore leading dimensions: [T,B], [B], or [], as input.
+        pi, q, beta, pi_omega_I = restore_leading_dims((pi, q, beta, pi_omega_I), lead_dim, T, B)
+        return pi, q, beta, pi_omega_I

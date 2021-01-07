@@ -1,5 +1,6 @@
 from rlpyt.agents.pg.categorical import CategoricalPgAgent, RecurrentCategoricalPgAgent, AlternatingRecurrentCategoricalPgAgent
-from rlpyt.models.pg.procgen_ff_model import ProcgenFfModel
+from rlpyt.agents.pg.oc import DiscreteOCAgent, AlternatingDiscreteOCAgent, AlternatingRecurrentDiscreteOCAgent, RecurrentDiscreteOCAgent
+from rlpyt.models.pg.procgen_ff_model import ProcgenFfModel, ProcgenOcModel
 
 class ProcgenMixin:
     """
@@ -13,10 +14,16 @@ class ProcgenMixin:
                     output_size=env_spaces.action.n)
 
 class ProcgenFfAgent(ProcgenMixin, CategoricalPgAgent):
-
     def __init__(self, ModelCls=ProcgenFfModel, **kwargs):
         super().__init__(ModelCls=ModelCls, **kwargs)
 
+class ProcgenOcAgent(ProcgenMixin, DiscreteOCAgent):
+    def __init__(self, ModelCls=ProcgenOcModel, **kwargs):
+        super().__init__(ModelCls=ModelCls, **kwargs)
+
+class AlternatingProcgenOcAgent(ProcgenMixin, AlternatingDiscreteOCAgent):
+    def __init__(self, ModelCls=ProcgenOcModel, **kwargs):
+        super().__init__(ModelCls=ModelCls, **kwargs)
 
 """
 class MiniWorldLstmAgent(MiniWorldMixin, RecurrentCategoricalPgAgent):

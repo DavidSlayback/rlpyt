@@ -19,6 +19,7 @@ path_a2oc = (pathlib.Path(__file__).resolve().parent.parent / 'train' / "procgen
 path_ppoc = (pathlib.Path(__file__).resolve().parent.parent / 'train' / "procgen_ff_ppoc_gpu.py").as_posix()
 # Default keys
 default_key = 'base'
+oc_key = 'base_4_oc'
 int_key = 'base_interest'
 # Param options
 A2C_LRS = list(zip([3e-4, 1e-3, 3e-3, 1e-2]))
@@ -35,16 +36,31 @@ game_key = [("env", "game")]
 
 game_names = ["{}".format(*v) for v in games]
 # PPO
-experiment_title = "PPO_Procgen"
+# experiment_title = "PPO_Procgen"
+# variant_levels = list()
+# variant_levels.append(VariantLevel(game_key, games, game_names))  # Games
+# variants, log_dirs = make_variants(*variant_levels)
+# run_experiments(
+#     script=path_ppo,
+#     affinity_code=affinity_code,
+#     experiment_title=experiment_title,
+#     runs_per_setting=runs_per_setting,
+#     variants=variants,
+#     log_dirs=log_dirs,
+#     common_args=(default_key,),
+# )
+
+# PPOC
+experiment_title = "PPOC_Procgen"
 variant_levels = list()
 variant_levels.append(VariantLevel(game_key, games, game_names))  # Games
 variants, log_dirs = make_variants(*variant_levels)
 run_experiments(
-    script=path_ppo,
+    script=path_ppoc,
     affinity_code=affinity_code,
     experiment_title=experiment_title,
     runs_per_setting=runs_per_setting,
     variants=variants,
     log_dirs=log_dirs,
-    common_args=(default_key,),
+    common_args=(oc_key,),
 )
