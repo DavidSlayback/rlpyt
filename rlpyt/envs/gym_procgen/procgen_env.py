@@ -1,6 +1,5 @@
 import numpy as np
 from rlpyt.envs.base import Env, EnvStep
-from rlpyt.envs.gym import info_to_nt
 from rlpyt.spaces.int_box import IntBox
 from rlpyt.utils.quick_args import save__init__args
 from rlpyt.samplers.collections import TrajInfo, namedtuple
