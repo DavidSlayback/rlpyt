@@ -57,17 +57,17 @@ class PolicyGradientAlgo(RlAlgorithm):
         done = done.type(reward.dtype)
         if self.normalize_rewards is not None:  # Normalize and clip rewards before computing advantage
             if self.normalize_rewards == 'return':
-                return_ = discount_return(reward, done, 0., self.discount)  # NO boostrapping of value
+                return_ = discount_return(reward, done, 0., self.discount, torch.zeros_like(reward))  # NO boostrapping of value
                 reward = self.ret_rms(reward, center=False)
             else:
                 reward = self.ret_rms(reward)
 
         if self.gae_lambda == 1:  # GAE reduces to empirical discounted.
-            return_ = discount_return(reward, done, bv, self.discount)
+            return_ = discount_return(reward, done, bv, self.discount, torch.zeros_like(reward))
             advantage = return_ - value
         else:
             advantage, return_ = generalized_advantage_estimation(
-                reward, value, done, bv, self.discount, self.gae_lambda)
+                reward, value, done, bv, self.discount, self.gae_lambda, torch.zeros_like(reward), torch.zeros_like(reward))
 
         if not self.mid_batch_reset or self.agent.recurrent:
             valid = valid_from_done(done)  # Recurrent: no reset during training.

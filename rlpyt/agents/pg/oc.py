@@ -9,12 +9,12 @@ from rlpyt.utils.buffer import buffer_to, buffer_func, buffer_method
 from rlpyt.utils.tensor import select_at_indexes
 
 class DiscreteOCAgentBase(BaseAgent):
-    def __call__(self, observation, prev_action, prev_reward, sampled_option):
+    def __call__(self, observation, prev_action, prev_reward, sampled_option, device="cpu"):
         prev_action = self.distribution.to_onehot(prev_action)
         model_inputs = buffer_to((observation, prev_action, prev_reward, sampled_option),
             device=self.device)
         pi, q, beta, pi_omega = self.model(*model_inputs[:-1])
-        return buffer_to((DistInfo(prob=select_at_indexes(sampled_option, pi)), q, beta, DistInfo(prob=pi_omega)), device="cpu")
+        return buffer_to((DistInfo(prob=select_at_indexes(sampled_option, pi)), q, beta, DistInfo(prob=pi_omega)), device=device)
 
     def initialize(self, env_spaces, share_memory=False,
             global_B=1, env_ranks=None):
@@ -24,7 +24,7 @@ class DiscreteOCAgentBase(BaseAgent):
         self.distribution_omega = Categorical(dim=self.model_kwargs["option_size"])
 
     @torch.no_grad()
-    def step(self, observation, prev_action, prev_reward):
+    def step(self, observation, prev_action, prev_reward, device="cpu"):
         prev_action = self.distribution.to_onehot(prev_action)
         model_inputs = buffer_to((observation, prev_action, prev_reward),
             device=self.device)
@@ -37,12 +37,12 @@ class DiscreteOCAgentBase(BaseAgent):
         agent_info = AgentInfoOC(dist_info=dist_info, dist_info_o=dist_info_o, q=q, value=(pi_omega * q).sum(-1),
                                  termination=terminations, dist_info_omega=dist_info_omega, prev_o=self._prev_option,
                                  o=new_o)
-        action, agent_info = buffer_to((action, agent_info), device="cpu")
+        action, agent_info = buffer_to((action, agent_info), device=device)
         self.advance_oc_state(new_o)
         return AgentStep(action=action, agent_info=agent_info)
 
     @torch.no_grad()
-    def value(self, observation, prev_action, prev_reward):
+    def value(self, observation, prev_action, prev_reward, device="cpu"):
         prev_action = self.distribution.to_onehot(prev_action)
         model_inputs = buffer_to((observation, prev_action, prev_reward),
             device=self.device)
@@ -51,7 +51,7 @@ class DiscreteOCAgentBase(BaseAgent):
         q_prev_o = select_at_indexes(self.prev_option, q)
         beta_prev_o = select_at_indexes(self.prev_option, beta)
         value = q_prev_o * (1 - beta_prev_o) + v * beta_prev_o
-        return value.to("cpu")
+        return value.to(device)
 
 class DiscreteOCAgent(OCAgentMixin, DiscreteOCAgentBase):
     pass
@@ -61,12 +61,12 @@ class AlternatingDiscreteOCAgent(AlternatingOCAgentMixin, DiscreteOCAgentBase):
 
 
 class RecurrentDiscreteOCAgentBase(BaseAgent):
-    def __call__(self, observation, prev_action, prev_reward, sampled_option, init_rnn_state):
+    def __call__(self, observation, prev_action, prev_reward, sampled_option, init_rnn_state, device="cpu"):
         prev_action = self.distribution.to_onehot(prev_action)
         model_inputs = buffer_to((observation, prev_action, prev_reward, init_rnn_state, sampled_option),
             device=self.device)
         pi, q, beta, pi_omega, next_rnn_state = self.model(*model_inputs[:-1], init_rnn_state)
-        return buffer_to((DistInfo(prob=select_at_indexes(sampled_option, pi)), q, beta, DistInfo(prob=pi_omega)), device="cpu"), next_rnn_state
+        return buffer_to((DistInfo(prob=select_at_indexes(sampled_option, pi)), q, beta, DistInfo(prob=pi_omega)), device=device), next_rnn_state
 
     def initialize(self, env_spaces, share_memory=False,
             global_B=1, env_ranks=None):
@@ -76,7 +76,7 @@ class RecurrentDiscreteOCAgentBase(BaseAgent):
         self.distribution_omega = Categorical(dim=self.model_kwargs["option_size"])
 
     @torch.no_grad()
-    def step(self, observation, prev_action, prev_reward):
+    def step(self, observation, prev_action, prev_reward, device="cpu"):
         prev_action = self.distribution.to_onehot(prev_action)
         model_inputs = buffer_to((observation, prev_action, prev_reward),
             device=self.device)
@@ -94,13 +94,13 @@ class RecurrentDiscreteOCAgentBase(BaseAgent):
         agent_info = AgentInfoOC(dist_info=dist_info, dist_info_o=dist_info_o, q=q, value=(pi_omega * q).sum(-1),
                                  termination=terminations, dist_info_omega=dist_info_omega, prev_o=self._prev_option,
                                  o=new_o, prev_rnn_state=prev_rnn_state)
-        action, agent_info = buffer_to((action, agent_info), device="cpu")
+        action, agent_info = buffer_to((action, agent_info), device=device)
         self.advance_oc_state(new_o)
         self.advance_rnn_state(rnn_state)
         return AgentStep(action=action, agent_info=agent_info)
 
     @torch.no_grad()
-    def value(self, observation, prev_action, prev_reward):
+    def value(self, observation, prev_action, prev_reward, device="cpu"):
         prev_action = self.distribution.to_onehot(prev_action)
         agent_inputs = buffer_to((observation, prev_action, prev_reward),
             device=self.device)
@@ -109,7 +109,7 @@ class RecurrentDiscreteOCAgentBase(BaseAgent):
         q_prev_o = select_at_indexes(self.prev_option, q)
         beta_prev_o = select_at_indexes(self.prev_option, beta)
         value = q_prev_o * (1 - beta_prev_o) + v * beta_prev_o
-        return value.to("cpu")
+        return value.to(device)
 
 class RecurrentDiscreteOCAgent(RecurrentOCAgentMixin, RecurrentDiscreteOCAgentBase):
     pass
@@ -122,14 +122,14 @@ class GaussianOCAgentBase(BaseAgent):
     Agent for option-critic algorithm using Gaussian action distribution.
     """
 
-    def __call__(self, observation, prev_action, prev_reward, sampled_option):
+    def __call__(self, observation, prev_action, prev_reward, sampled_option, device="cpu"):
         """Performs forward pass on training data, for algorithm. Returns sampled distinfo, q, beta, and piomega distinfo"""
         model_inputs = buffer_to((observation, prev_action, prev_reward, sampled_option), device=self.device)
         mu, log_std, q, beta, pi = self.model(*model_inputs[:-1])
         # Need gradients from intra-option (DistInfoStd), q_o (q), termination (beta), and pi_omega (DistInfo)
         return buffer_to((DistInfoStd(mean=select_at_indexes(sampled_option, mu),
                                       log_std=select_at_indexes(sampled_option,
-                                                                log_std)), q, beta, DistInfo(prob=pi)), device="cpu")
+                                                                log_std)), q, beta, DistInfo(prob=pi)), device=device)
 
     def initialize(self, env_spaces, share_memory=False,
             global_B=1, env_ranks=None):
@@ -149,7 +149,7 @@ class GaussianOCAgentBase(BaseAgent):
         )
 
     @torch.no_grad()
-    def step(self, observation, prev_action, prev_reward):
+    def step(self, observation, prev_action, prev_reward, device="cpu"):
         """
         Compute policy's option and action distributions from inputs.
         Calls model to get mean, std for all pi_w, q, beta for all options, pi over options
@@ -167,12 +167,12 @@ class GaussianOCAgentBase(BaseAgent):
         agent_info = AgentInfoOC(dist_info=dist_info, dist_info_o=dist_info_o, q=q, value=(pi * q).sum(-1),
                                  termination=terminations, dist_info_omega=dist_info_omega, prev_o=self._prev_option,
                                  o=new_o)
-        action, agent_info = buffer_to((action, agent_info), device="cpu")
+        action, agent_info = buffer_to((action, agent_info), device=device)
         self.advance_oc_state(new_o)
         return AgentStep(action=action, agent_info=agent_info)
 
     @torch.no_grad()
-    def value(self, observation, prev_action, prev_reward):
+    def value(self, observation, prev_action, prev_reward, device="cpu"):
         """
         Compute the value estimate for the environment state, e.g. for the
         bootstrap value, V(s_{T+1}), in the sampler.
@@ -188,7 +188,7 @@ class GaussianOCAgentBase(BaseAgent):
         q_prev_o = select_at_indexes(self.prev_option, q)
         beta_prev_o = select_at_indexes(self.prev_option, beta)
         value = q_prev_o * (1 - beta_prev_o) + v * beta_prev_o
-        return value.to("cpu")
+        return value.to(device)
 
 
 class GaussianOCAgent(OCAgentMixin, GaussianOCAgentBase):
@@ -201,7 +201,7 @@ class AlternatingGaussianOCAgent(AlternatingOCAgentMixin, GaussianOCAgentBase):
 
 class RecurrentGaussianOCAgentBase(BaseAgent):
 
-    def __call__(self, observation, prev_action, prev_reward, sampled_option, init_rnn_state):
+    def __call__(self, observation, prev_action, prev_reward, sampled_option, init_rnn_state, device="cpu"):
         """Performs forward pass on training data, for algorithm (requires
         recurrent state input). Returnssampled distinfo, q, beta, and piomega distinfo"""
         # Assume init_rnn_state already shaped: [N,B,H]
@@ -211,7 +211,7 @@ class RecurrentGaussianOCAgentBase(BaseAgent):
         dist_info, q, beta, dist_info_omega = buffer_to((DistInfoStd(mean=select_at_indexes(sampled_option, mu),
                                                                      log_std=select_at_indexes(sampled_option,
                                                                                                log_std)), q, beta,
-                                                         DistInfo(prob=pi)), device="cpu")
+                                                         DistInfo(prob=pi)), device=device)
         return dist_info, q, beta, dist_info_omega, next_rnn_state  # Leave rnn_state on device.
 
     def initialize(self, env_spaces, share_memory=False,
@@ -228,7 +228,7 @@ class RecurrentGaussianOCAgentBase(BaseAgent):
         )
 
     @torch.no_grad()
-    def step(self, observation, prev_action, prev_reward):
+    def step(self, observation, prev_action, prev_reward, device="cpu"):
         """
         Compute policy's action distribution from inputs, and sample an
         action. Calls the model to produce mean, log_std, value estimate, and
@@ -253,13 +253,13 @@ class RecurrentGaussianOCAgentBase(BaseAgent):
         agent_info = AgentInfoOCRnn(dist_info=dist_info, dist_info_o=dist_info_o, q=q, value=(pi * q).sum(-1),
                                     termination=terminations, inter_option_dist_info=dist_info_omega,
                                     prev_o=self._prev_option, o=new_o, prev_rnn_state=prev_rnn_state)
-        action, agent_info = buffer_to((action, agent_info), device="cpu")
+        action, agent_info = buffer_to((action, agent_info), device=device)
         self.advance_rnn_state(rnn_state)  # Keep on device.
         self.advance_oc_state(new_o)
         return AgentStep(action=action, agent_info=agent_info)
 
     @torch.no_grad()
-    def value(self, observation, prev_action, prev_reward):
+    def value(self, observation, prev_action, prev_reward, device="cpu"):
         """
         Compute the value estimate for the environment state using the
         currently held recurrent state, without advancing the recurrent state,
@@ -276,7 +276,7 @@ class RecurrentGaussianOCAgentBase(BaseAgent):
         q_prev_o = select_at_indexes(self.prev_option, q)
         beta_prev_o = select_at_indexes(self.prev_option, beta)
         value = q_prev_o * (1 - beta_prev_o) + v * beta_prev_o
-        return value.to("cpu")
+        return value.to(device)
 
 
 class RecurrentGaussianOCAgent(RecurrentOCAgentMixin, RecurrentGaussianOCAgentBase):

@@ -16,6 +16,18 @@ import importlib
 import pathlib
 
 VALID_TASKS = ['Ant', 'BallBalance', 'Cartpole', 'CartpoleYUp', 'Humanoid', 'FrankaCabinet', 'ShadowHand']
+from rlpyt.samplers.collections import TrajInfo, namedtuple
+EnvInfo = namedtuple("EnvInfo", ["timeout"])
+import torch
+class IsaacSpaceWrapper(GymSpaceWrapper):
+    def __init__(self, num_envs, device='cuda', **kwargs):
+        super().__init__(**kwargs)
+        self.B = num_envs
+        self.device = device
+
+    def sample(self):
+        samples = [self.space.sample() for _ in range(self.B)]
+        return torch.tensor(samples, device=self.device)
 
 class IsaacGymEnv(Env):
     """Interface for Nvidia's Isaacgym environments
@@ -53,13 +65,18 @@ class IsaacGymEnv(Env):
         cfg, cfg_train, logdir = load_cfg(base_args)
         sim_params = parse_sim_params(base_args, cfg, cfg_train)
         self.task, self.env = parse_task(base_args, cfg, cfg_train, sim_params)  # Create environment
-        self.num_envs = self.env.num_envs
-        self._observation_space = GymSpaceWrapper(
+        self.num_envs = self.env.num_envs  # Number of environments
+        self.device = self.env.rl_device  # cuda or cpu
+        self._observation_space = IsaacSpaceWrapper(
+            num_envs=self.num_envs,
+            device=self.env.rl_device,
             space=self.env.observation_space,
             name="obs",
             force_float32=True,
         )
-        self._action_space = GymSpaceWrapper(
+        self._action_space = IsaacSpaceWrapper(
+            num_envs=self.num_envs,
+            device=self.env.rl_device,
             space=self.env.action_space,
             name="act",
             force_float32=True,
@@ -69,7 +86,8 @@ class IsaacGymEnv(Env):
         return self.env.reset()
 
     def step(self, action):
-        return self.env.step(action)
+        o, r, d, _ = self.env.step(action)
+        return EnvStep(o, r, d, EnvInfo(timeout=False))
 
     def render(self):
         pass

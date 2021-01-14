@@ -60,7 +60,7 @@ class BaseAgent:
         self._send_count = mp.RawValue("l", 0)
         self._recv_count = 0
 
-    def __call__(self, observation, prev_action, prev_reward):
+    def __call__(self, observation, prev_action, prev_reward, device="cpu"):
         """Returns values from model forward pass on training data (i.e. used
         in algorithm)."""
         raise NotImplementedError
@@ -170,7 +170,7 @@ class BaseAgent:
         pass
 
     @torch.no_grad()  # Hint: apply this decorator on overriding method.
-    def step(self, observation, prev_action, prev_reward):
+    def step(self, observation, prev_action, prev_reward, device="cpu"):
         """Returns selected actions for environment instances in sampler."""
         raise NotImplementedError  # return type: AgentStep
 
@@ -178,6 +178,9 @@ class BaseAgent:
         pass
 
     def reset_one(self, idx):
+        pass
+
+    def reset_multiple(self, indexes):
         pass
 
     def parameters(self):
@@ -279,6 +282,9 @@ class RecurrentAgentMixin:
         if self._prev_rnn_state is not None:
             self._prev_rnn_state[:, idx] = 0  # Automatic recursion in namedarraytuple.
 
+    def reset_multiple(self, indexes):
+        self.reset_one(indexes)  # Should be same if I pass proper indices
+
     def advance_rnn_state(self, new_rnn_state):
         """Sets the recurrent state to the newly computed one (i.e. recurrent agents should
         call this at the end of their ``step()``). """
@@ -343,6 +349,9 @@ class OCAgentMixin:
             self._prev_option[idx] = -1  # Automatic recursion in namedarraytuple.
         if self._prev_rnn_state is not None:
             self._prev_rnn_state[:, idx] = 0  # Automatic recursion in namedarraytuple.
+
+    def reset_multiple(self, indexes):
+        self.reset_one(indexes)  # Should be same if I pass proper indices
 
     def sample_option(self, betas, option_dist_info):
         """Sample options according to which previous options are terminated and probability over options"""
@@ -436,6 +445,9 @@ class AlternatingRecurrentAgentMixin:
         if self._prev_rnn_state is not None:
             self._prev_rnn_state[:, idx] = 0  # Automatic recursion in namedarraytuple.
 
+    def reset_multiple(self, indexes):
+        self.reset_one(indexes)  # Should be same if I pass proper indices
+
 
     def advance_rnn_state(self, new_rnn_state):
         """To be called inside agent.step()."""
@@ -521,6 +533,8 @@ class AlternatingOCAgentMixin:
         if self._prev_rnn_state is not None:
             self._prev_rnn_state[:, idx] = 0  # Automatic recursion in namedarraytuple.
 
+    def reset_multiple(self, indexes):
+        self.reset_one(indexes)  # Should be same if I pass proper indices
 
     def advance_rnn_state(self, new_rnn_state):
         """To be called inside agent.step()."""

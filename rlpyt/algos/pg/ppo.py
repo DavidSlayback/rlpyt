@@ -109,12 +109,12 @@ class PPO(PolicyGradientAlgo):
                     self.agent.parameters(), self.clip_grad_norm)
                 self.optimizer.step()
 
-                opt_info.loss.append(loss.item())
-                opt_info.pi_loss.append(pi_loss.item())
-                opt_info.value_loss.append(value_loss.item())
-                opt_info.gradNorm.append(grad_norm.clone().detach().item())  # backwards compatible
-                opt_info.entropy.append(entropy.item())
-                opt_info.perplexity.append(perplexity.item())
+                opt_info.loss.append(loss.cpu().item())
+                opt_info.pi_loss.append(pi_loss.cpu().item())
+                opt_info.value_loss.append(value_loss.cpu().item())
+                opt_info.gradNorm.append(grad_norm.cpu().clone().detach().item())  # backwards compatible
+                opt_info.entropy.append(entropy.cpu().item())
+                opt_info.perplexity.append(perplexity.cpu().item())
                 self.update_counter += 1
         if self.linear_lr_schedule:
             self.lr_scheduler.step()
@@ -136,9 +136,9 @@ class PPO(PolicyGradientAlgo):
             # [B,N,H] --> [N,B,H] (for cudnn).
             init_rnn_state = buffer_method(init_rnn_state, "transpose", 0, 1)
             init_rnn_state = buffer_method(init_rnn_state, "contiguous")
-            dist_info, value, _rnn_state = self.agent(*agent_inputs, init_rnn_state)
+            dist_info, value, _rnn_state = self.agent(*agent_inputs, init_rnn_state, device=action.device)
         else:
-            dist_info, value = self.agent(*agent_inputs)
+            dist_info, value = self.agent(*agent_inputs, device=action.device)
         dist = self.agent.distribution
 
         # Surrogate policy loss
