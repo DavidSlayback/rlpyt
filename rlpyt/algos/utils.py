@@ -21,6 +21,22 @@ def discount_return(reward, done, bootstrap_value, discount, return_dest=None):
     return return_
 
 
+#@torch.jit.script
+def discount_return_ts(reward, done, bootstrap_value, discount, return_dest=None):
+    """ As above, but compatible with TorchScript"""
+    return_ = return_dest if return_dest is not None else torch.zeros_like(reward)
+    nd = 1 - done
+    nd = nd.type_as(reward)
+    return_[-1] = reward[-1] + discount * bootstrap_value * nd[-1]
+    for t in torch.arange(reward.size(0) - 1, 0, -1):
+        return_[t] = reward[t] + return_[t + 1] * discount * nd[t]
+    """
+    for t in reversed(range(len(reward) - 1)):
+        return_[t] = reward[t] + return_[t + 1] * discount * nd[t]
+    """
+    return return_
+
+
 def generalized_advantage_estimation(reward, value, done, bootstrap_value,
         discount, gae_lambda, advantage_dest=None, return_dest=None):
     """Time-major inputs, optional other dimensions: [T], [T,B], etc.  Similar
@@ -32,6 +48,21 @@ def generalized_advantage_estimation(reward, value, done, bootstrap_value,
         reward.shape, dtype=reward.dtype)
     nd = 1 - done
     nd = nd.type(reward.dtype) if isinstance(nd, torch.Tensor) else nd
+    advantage[-1] = reward[-1] + discount * bootstrap_value * nd[-1] - value[-1]
+    for t in reversed(range(len(reward) - 1)):
+        delta = reward[t] + discount * value[t + 1] * nd[t] - value[t]
+        advantage[t] = delta + discount * gae_lambda * nd[t] * advantage[t + 1]
+    return_[:] = advantage + value
+    return advantage, return_
+
+#@torch.jit.script
+def generalized_advantage_estimation_ts(reward, value, done, bootstrap_value,
+        discount, gae_lambda, advantage_dest=None, return_dest=None):
+    """ As above, but compatible with TorchScript"""
+    advantage = advantage_dest if advantage_dest is not None else torch.zeros_like(reward)
+    return_ = return_dest if return_dest is not None else torch.zeros_like(reward)
+    nd = 1 - done
+    nd = nd.type_as(reward)
     advantage[-1] = reward[-1] + discount * bootstrap_value * nd[-1] - value[-1]
     for t in reversed(range(len(reward) - 1)):
         delta = reward[t] + discount * value[t + 1] * nd[t] - value[t]
@@ -98,6 +129,32 @@ def discount_return_n_step(reward, done, n_step, discount, return_dest=None,
                 done_n[:] = np.maximum(done_n, done[n:n + rlen])  # Supports tensors.
     if is_torch:
         done_n = done_n.type(done_dtype)
+    return return_, done_n
+
+#@torch.jit.script
+def discount_return_n_step_ts(reward, done, n_step, discount, return_dest=None,
+        done_n_dest=None, do_truncated=False):
+    """ As above, but compatible with TorchScript"""
+    rlen = reward.shape[0]
+    if not do_truncated:
+        rlen -= (n_step - 1)
+    done_n = done_n_dest if done_n_dest is not None else torch.zeros((rlen,) + reward.shape[1:], dtype=reward.dtype, device=reward.device)
+    return_ = return_dest if return_dest is not None else torch.zeros((rlen,) + reward.shape[1:], dtype=reward.dtype, device=reward.device)
+    return_[:] = reward[:rlen]  # 1-step return is current reward.
+    done_n[:] = done[:rlen]  # True at time t if done any time by t + n - 1
+    done_dtype = done.dtype
+    done_n = done_n.type(reward.dtype)
+    done = done.type(reward.dtype)
+    if n_step > 1:
+        if do_truncated:
+            for n in range(1, n_step):
+                return_[:-n] += (discount ** n) * reward[n:n + rlen] * (1 - done_n[:-n])
+                done_n[:-n] = np.maximum(done_n[:-n], done[n:n + rlen])
+        else:
+            for n in range(1, n_step):
+                return_ += (discount ** n) * reward[n:n + rlen] * (1 - done_n)
+                done_n[:] = np.maximum(done_n, done[n:n + rlen])  # Supports tensors.
+    done_n = done_n.type(done_dtype)
     return return_, done_n
 
 

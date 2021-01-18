@@ -2,6 +2,7 @@ import numpy as np
 import os
 import yaml
 from rlpyt.spaces.gym_wrapper import GymSpaceWrapper
+from rlpyt.utils.collections import AttrDict  # AttrDict
 from rlpyt.envs.base import Env, EnvStep
 from rlgpu.utils.config import (
     get_args,  # default args
@@ -15,7 +16,7 @@ from rlgpu.utils.parse_task import parse_task
 import importlib
 import pathlib
 
-VALID_TASKS = ['Ant', 'BallBalance', 'Cartpole', 'CartpoleYUp', 'Humanoid', 'FrankaCabinet', 'ShadowHand']
+VALID_TASKS = ['Ant', 'BallBalance', 'Cartpole', 'CartpoleYUp', 'Humanoid', 'FrankaCabinet', 'ShadowHand', 'HalfCheetah']
 from rlpyt.samplers.collections import TrajInfo, namedtuple
 EnvInfo = namedtuple("EnvInfo", ["timeout"])
 import torch
@@ -127,7 +128,7 @@ with open(os.path.join(base_cfg_path), 'r') as f:
 
 from rlgpu.utils.process_ppo import process_ppo
 if __name__ == "__main__":
-    test = IsaacGymEnv('Ant')
+    # test = IsaacGymEnv('Ant')
     set_np_formatting()
     args = get_args()
     args.max_iterations=2000
