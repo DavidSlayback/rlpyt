@@ -6,6 +6,7 @@ from rlpyt.utils.tensor import infer_leading_dims, restore_leading_dims
 from rlpyt.models.mlp import MlpModel
 from rlpyt.models.oc import ContinuousIntraOptionPolicy
 from rlpyt.models.running_mean_std import RunningMeanStdModel
+from rlpyt.models.utils import Dummy
 
 class MujocoOCFfModel(torch.nn.Module):
     """
@@ -86,7 +87,7 @@ class MujocoOCFfModel(torch.nn.Module):
             output_size=option_size,
             nonlinearity=hidden_nonlinearity,
             inits=inits_v
-        ), torch.nn.Sigmoid()) if use_interest else torch.nn.Identity()
+        ), torch.nn.Sigmoid()) if use_interest else Dummy(option_size)
         if normalize_observation:
             self.obs_rms = RunningMeanStdModel(observation_shape)
             self.norm_obs_clip = norm_obs_clip
@@ -117,17 +118,10 @@ class MujocoOCFfModel(torch.nn.Module):
         log_std = logstd.repeat(T * B, 1, 1)
         beta = self.beta(obs_flat)
         pi = self.pi_omega(obs_flat)
-        if self.use_interest:
-            I = self.pi_omega_I(obs_flat)
-            mu, log_std, q, beta, pi, I = restore_leading_dims((mu, log_std, q, beta, pi, I), lead_dim, T, B)
-            pi = pi * I
-            # pi = pi / pi.sum(0)  # Unnecessary, torch.multinomial normalizes
-            # pi[torch.isnan(pi)] = 0.
-            return mu, log_std, q, beta, pi
-
+        I = self.pi_omega_I(obs_flat)
         # Restore leading dimensions: [T,B], [B], or [], as input.
-        mu, log_std, q, beta, pi = restore_leading_dims((mu, log_std, q, beta, pi), lead_dim, T, B)
-
+        mu, log_std, q, beta, pi, I = restore_leading_dims((mu, log_std, q, beta, pi, I), lead_dim, T, B)
+        pi = pi * I  # Torch multinomial will normalize
         return mu, log_std, q, beta, pi
 
     def update_obs_rms(self, observation):

@@ -6,6 +6,7 @@ from rlpyt.utils.tensor import infer_leading_dims, restore_leading_dims
 from rlpyt.models.conv2d import Conv2dHeadModel
 from rlpyt.models.oc import DiscreteIntraOptionPolicy
 from rlpyt.models.params import CONVNET_DQN  # Used by IOC
+from rlpyt.models.utils import Dummy
 
 class MiniworldOcFfModel(torch.nn.Module):
     """
@@ -44,7 +45,7 @@ class MiniworldOcFfModel(torch.nn.Module):
         self.q = torch.nn.Linear(self.conv.output_size, num_options)
         self.beta = torch.nn.Sequential(torch.nn.Linear(self.conv.output_size, num_options), torch.nn.Sigmoid())
         self.pi_omega = torch.nn.Sequential(torch.nn.Linear(self.conv.output_size, num_options), torch.nn.Softmax(dim=-1))
-        self.I = torch.nn.Sequential(torch.nn.Linear(self.conv.output_size, num_options), torch.nn.Sigmoid()) if use_interest else torch.nn.Identity()
+        self.I = torch.nn.Sequential(torch.nn.Linear(self.conv.output_size, num_options), torch.nn.Sigmoid()) if use_interest else Dummy(num_options)
 
     def forward(self, image, prev_action, prev_reward):
         """
@@ -69,9 +70,8 @@ class MiniworldOcFfModel(torch.nn.Module):
         pi_o = self.pi_omega(fc_out)
         I = self.I(fc_out)
 
-        # Multiply pi_o by interest and normalize
+        # Multiply pi_o by interest, normalization occurs in multinomial
         pi_I = pi_o * I
-        pi_I.divide_(pi_I.sum(-1))
 
         # Restore leading dimensions: [T,B], [B], or [], as input.
         pi, q, beta, pi_I = restore_leading_dims((pi, q, beta, pi_I), lead_dim, T, B)

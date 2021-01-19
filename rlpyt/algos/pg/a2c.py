@@ -86,9 +86,9 @@ class A2C(PolicyGradientAlgo):
             # [B,N,H] --> [N,B,H] (for cudnn).
             init_rnn_state = buffer_method(init_rnn_state, "transpose", 0, 1)
             init_rnn_state = buffer_method(init_rnn_state, "contiguous")
-            dist_info, value, _rnn_state = self.agent(*agent_inputs, init_rnn_state)
+            dist_info, value, _rnn_state = self.agent(*agent_inputs, init_rnn_state, device=agent_inputs.prev_action.device)
         else:
-            dist_info, value = self.agent(*agent_inputs)
+            dist_info, value = self.agent(*agent_inputs, device=agent_inputs.prev_action.device)
         # TODO: try to compute everyone on device.
         return_, advantage, valid = self.process_returns(samples)
 

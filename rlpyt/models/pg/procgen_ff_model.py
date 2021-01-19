@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from rlpyt.utils.tensor import infer_leading_dims, restore_leading_dims
 from rlpyt.models.conv2d import Conv2dHeadModel
 from rlpyt.models.params import CONVNET_IMPALA_LARGE  # Used by IOC
-from rlpyt.models.utils import layer_init, conv2d_output_shape, View
+from rlpyt.models.utils import layer_init, conv2d_output_shape, Dummy
 from rlpyt.models.oc import DiscreteIntraOptionPolicy
 
 

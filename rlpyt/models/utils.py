@@ -102,6 +102,22 @@ class View(torch.nn.Module):
     def forward(self, x):
         return x.view((-1,) + self.shape)
 
+class Dummy(torch.nn.Module):
+    """ Dummy layer that outputs the same thing regardless of input
+
+    Args:
+        out_size (int): Output size
+        out_value (float): Desired output value. Defaults to 1 (as in a mask)
+    Returns:
+        (B, out_size) tensor filled with out_value
+    """
+    def __init__(self, out_size, out_value=1.):
+        super().__init__()
+        self.out = torch.nn.Parameter(torch.full((out_size,), out_value), requires_grad=False)
+
+    def forward(self, x):
+        return self.out.expand(x.size(0), -1)
+
 
 def update_state_dict(model, state_dict, tau=1, strip_ddp=True):
     """Update the state dict of ``model`` using the input ``state_dict``, which

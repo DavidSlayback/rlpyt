@@ -4,6 +4,7 @@ import torch.nn.functional as F
 
 from rlpyt.utils.tensor import infer_leading_dims, restore_leading_dims
 from rlpyt.models.conv2d import Conv2dHeadModel
+from rlpyt.models.utils import Dummy
 
 
 class AtariFfModel(torch.nn.Module):
@@ -100,7 +101,7 @@ class AtariOcModel(torch.nn.Module):
         self.q = torch.nn.Linear(self.conv.output_size, option_size)
         self.beta = torch.nn.Sequential(torch.nn.Linear(self.conv.output_size, option_size), torch.nn.Sigmoid())
         self.pi_omega = torch.nn.Sequential(torch.nn.Linear(self.conv.output_size, option_size), torch.nn.Softmax(-1))
-        self.pi_omega_I = torch.nn.Sequential(torch.nn.Linear(self.conv.output_size, option_size), torch.nn.Sigmoid()) if use_interest else torch.nn.Identity()
+        self.pi_omega_I = torch.nn.Sequential(torch.nn.Linear(self.conv.output_size, option_size), torch.nn.Sigmoid()) if use_interest else Dummy(option_size)
 
     def forward(self, image, prev_action, prev_reward):
         """
@@ -124,12 +125,8 @@ class AtariOcModel(torch.nn.Module):
         beta = self.beta(fc_out)
         pi_omega_I = self.pi_omega(fc_out)
         I = self.pi_omega_I(fc_out)
-        if self.use_interest:
-            pi_omega_I = pi_omega_I * I
-            pi_omega_I.divide_(pi_omega_I.sum(-1))
-
+        pi_omega_I = pi_omega_I * I
         # Restore leading dimensions: [T,B], [B], or [], as input.
         pi, q, beta, pi_omega_I = restore_leading_dims((pi, q, beta, pi_omega_I), lead_dim, T, B)
-
         return pi, q, beta, pi_omega_I
 
