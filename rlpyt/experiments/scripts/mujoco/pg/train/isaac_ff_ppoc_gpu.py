@@ -1,11 +1,11 @@
 
 import sys
 
+from rlpyt.envs.gym_isaac.isaacgym_env import IsaacGymEnv
 from rlpyt.utils.launching.affinity import affinity_from_code
 from rlpyt.samplers.serial.isaac import IsaacSampler
-from rlpyt.envs.gym_isaac.isaacgym_env import IsaacGymEnv
 from rlpyt.algos.pg.ppoc import PPOC
-from rlpyt.agents.pg.mujoco import MujocoFfAgent
+from rlpyt.agents.pg.mujoco import MujocoFfOcAgent
 from rlpyt.runners.minibatch_rl import MinibatchRl
 from rlpyt.utils.logging.context import logger_context
 from rlpyt.utils.launching.variant import load_variant, update_config
@@ -23,7 +23,7 @@ def build_and_train(slot_affinity_code, log_dir, run_ID, config_key):
     config["model"]["hidden_nonlinearity"] = getattr(nn, config["model"]["hidden_nonlinearity"])  # Replace string with proper activation
     sampler = IsaacSampler(env, **config["sampler"])
     algo = PPOC(optim_kwargs=config["optim"], **config["algo"])
-    agent = MujocoFfAgent(model_kwargs=config["model"], **config["agent"])
+    agent = MujocoFfOcAgent(model_kwargs=config["model"], **config["agent"])
     runner = MinibatchRl(
         algo=algo,
         agent=agent,

@@ -7,7 +7,7 @@ PHYSX_N_THREADS = 4  # By default, isaac environments use 4 cores by themselves.
 affinity_code = encode_affinity(
     n_cpu_core=6,
     n_gpu=1,
-    contexts_per_gpu=1,  # This thing chews GPU memory
+    contexts_per_gpu=2,  # This thing chews GPU memory
     n_socket=1,
     alternating=False
 )
@@ -34,19 +34,19 @@ game_key = [("env", "task")]
 
 task_names = ["{}".format(*v) for v in tasks]
 
-experiment_title = "PPO_Isaac"
-variant_levels = list()
-variant_levels.append(VariantLevel(game_key, tasks, task_names))  # Games
-variants, log_dirs = make_variants(*variant_levels)
-run_experiments(
-    script=path_ppo,
-    affinity_code=affinity_code,
-    experiment_title=experiment_title,
-    runs_per_setting=runs_per_setting,
-    variants=variants,
-    log_dirs=log_dirs,
-    common_args=(default_key,),
-)
+# experiment_title = "PPO_Isaac"
+# variant_levels = list()
+# variant_levels.append(VariantLevel(game_key, tasks, task_names))  # Games
+# variants, log_dirs = make_variants(*variant_levels)
+# run_experiments(
+#     script=path_ppo,
+#     affinity_code=affinity_code,
+#     experiment_title=experiment_title,
+#     runs_per_setting=runs_per_setting,
+#     variants=variants,
+#     log_dirs=log_dirs,
+#     common_args=(default_key,),
+# )
 
 experiment_title = "PPOC_Isaac"
 variant_levels = list()

@@ -10,7 +10,7 @@ from rlgpu.utils.config import (
     set_seed,  # Seeds torch, numpy, random
     load_cfg,  # Call on args to get config
     parse_sim_params,  # Get params from config for sim
-    retrieve_cfg
+    retrieve_cfg,
 )
 from rlgpu.utils.parse_task import parse_task
 import importlib
@@ -29,6 +29,42 @@ class IsaacSpaceWrapper(GymSpaceWrapper):
     def sample(self):
         samples = [self.space.sample() for _ in range(self.B)]
         return torch.tensor(samples, device=self.device)
+
+from isaacgym import gymapi
+BASE_ARGS = {
+    # From gymutil.parse_arguments
+    'headless': False,
+    'nographics': False,
+    'compute_device_id': 0,
+    'graphics_device_id': 0,
+    'flex': False,
+    'physx': False,
+    'physx_gpu': False,
+    'num_threads': 0,
+    'subscenes': 0,
+    'slices': 0,
+    'physics_engine': gymapi.SIM_PHYSX,
+    'use_gpu': False,
+    # From config.get_args
+    'test': False,
+    'play': False,
+    'train': True,
+    'resume': 0,
+    'checkpoint': "",
+    'task': "Humanoid",
+    'task_type': 'Python',
+    'device': 'GPU',
+    'ppo_device': 'GPU',
+    'logdir': 'logs/',
+    'cfg_train': 'Base',
+    'experiment_name': 'Base',
+    'cfg_env': 'Base',
+    'seed': -1,
+    'max_iterations': 0,
+    'num_envs': 0,
+    'episode_length': 0,
+    'randomize': False
+}
 
 class IsaacGymEnv(Env):
     """Interface for Nvidia's Isaacgym environments
@@ -55,7 +91,8 @@ class IsaacGymEnv(Env):
                  episode_length=1000,
                  randomize=False):
         assert task in VALID_TASKS
-        base_args = get_args()
+        base_args = AttrDict(BASE_ARGS)  # Base args except for cfg
+        base_args.logdir, base_args.cfg_train, base_args.cfg_env = retrieve_cfg(base_args, False)
         base_args.headless = headless
         base_args.task = task
         base_args.seed = seed

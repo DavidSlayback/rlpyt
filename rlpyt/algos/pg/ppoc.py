@@ -155,9 +155,9 @@ class PPOC(OCAlgo):
             # [B,N,H] --> [N,B,H] (for cudnn).
             init_rnn_state = buffer_method(init_rnn_state, "transpose", 0, 1)
             init_rnn_state = buffer_method(init_rnn_state, "contiguous")
-            dist_info_o, q, beta, dist_info_omega, _rnn_state = self.agent(*agent_inputs, init_rnn_state)
+            dist_info_o, q, beta, dist_info_omega, _rnn_state = self.agent(*agent_inputs, init_rnn_state, device=action.device)
         else:
-            dist_info_o, q, beta, dist_info_omega = self.agent(*agent_inputs)
+            dist_info_o, q, beta, dist_info_omega = self.agent(*agent_inputs, device=action.device)
         dist = self.agent.distribution
         dist_omega = self.agent.distribution_omega
 
