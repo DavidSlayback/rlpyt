@@ -14,7 +14,8 @@ dependencies:
 - pip:
   - atari-py
   - pyprind  # progbar.
-  - -e ./gym-miniworld
-  - gym-minigrid
   - gym3
-  - pyglet==1.5.13
+  - bsuite
+  - ply
+  - git+https://github.com/abaisero/rl-parsers.git  # Andrea's rl_parsers
+  - pyglet==1.5.14

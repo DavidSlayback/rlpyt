@@ -1,6 +1,0 @@
-[submodule "gym-miniworld"]
-	path = gym-miniworld
-	url = https://github.com/maximecb/gym-miniworld.git
-[submodule "gym-gridverse"]
-	path = gym-gridverse
-	url = https://github.com/abaisero/gym-gridverse.git
