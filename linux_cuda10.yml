@@ -17,5 +17,6 @@ dependencies:
   - gym3
   - bsuite
   - ply
+  - git+https://github.com/abaisero/one-to-one.git  # Andrea's one-to-one
   - git+https://github.com/abaisero/rl-parsers.git  # Andrea's rl_parsers
   - pyglet==1.5.14
