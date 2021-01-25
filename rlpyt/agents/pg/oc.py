@@ -53,10 +53,10 @@ class DiscreteOCAgentBase(BaseAgent):
         value = q_prev_o * (1 - beta_prev_o) + v * beta_prev_o
         return value.to(device)
 
-class DiscreteOCAgent(OCAgentMixin, DiscreteOCAgentBase):
+class CategoricalOcAgent(OCAgentMixin, DiscreteOCAgentBase):
     pass
 
-class AlternatingDiscreteOCAgent(AlternatingOCAgentMixin, DiscreteOCAgentBase):
+class AlternatingCategoricalOcAgent(AlternatingOCAgentMixin, DiscreteOCAgentBase):
     pass
 
 
@@ -111,10 +111,10 @@ class RecurrentDiscreteOCAgentBase(BaseAgent):
         value = q_prev_o * (1 - beta_prev_o) + v * beta_prev_o
         return value.to(device)
 
-class RecurrentDiscreteOCAgent(RecurrentOCAgentMixin, RecurrentDiscreteOCAgentBase):
+class RecurrentCategoricalOcAgent(RecurrentOCAgentMixin, RecurrentDiscreteOCAgentBase):
     pass
 
-class AlternatingRecurrentDiscreteOCAgent(AlternatingRecurrentOCAgentMixin, RecurrentDiscreteOCAgentBase):
+class AlternatingRecurrentCategoricalOcAgent(AlternatingRecurrentOCAgentMixin, RecurrentDiscreteOCAgentBase):
     pass
 
 class GaussianOCAgentBase(BaseAgent):

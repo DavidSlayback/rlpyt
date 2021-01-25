@@ -4,7 +4,7 @@ from rlpyt.agents.pg.gaussian import (GaussianPgAgent,
     RecurrentGaussianPgAgent, AlternatingRecurrentGaussianPgAgent)
 from rlpyt.agents.pg.oc import GaussianOCAgent, AlternatingGaussianOCAgent
 from rlpyt.models.pg.mujoco_ff_model import MujocoFfModel
-from rlpyt.models.pg.oc.mujoco_ff_model import MujocoOCFfModel
+from rlpyt.models.pg.oc.mujoco_ff_model import RefactoredMujocoOcFfModel as MujocoOCFfModel
 from rlpyt.models.pg.mujoco_lstm_model import MujocoLstmModel
 from rlpyt.utils.buffer import buffer_to
 

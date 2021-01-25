@@ -2,7 +2,7 @@
 
 from rlpyt.agents.pg.categorical import (CategoricalPgAgent,
     RecurrentCategoricalPgAgent, AlternatingRecurrentCategoricalPgAgent)
-from rlpyt.agents.pg.oc import (DiscreteOCAgent, RecurrentDiscreteOCAgent, AlternatingRecurrentDiscreteOCAgent)
+from rlpyt.agents.pg.oc import (CategoricalOcAgent, RecurrentCategoricalOcAgent, AlternatingRecurrentCategoricalOcAgent)
 from rlpyt.models.pg.atari_ff_model import AtariFfModel, AtariOcModel
 from rlpyt.models.pg.atari_lstm_model import AtariLstmModel
 
@@ -36,20 +36,20 @@ class AlternatingAtariLstmAgent(AtariMixin,
     def __init__(self, ModelCls=AtariLstmModel, **kwargs):
         super().__init__(ModelCls=ModelCls, **kwargs)
 
-class AtariOcAgent(AtariMixin, DiscreteOCAgent):
+class AtariOcAgent(AtariMixin, CategoricalOcAgent):
 
     def __init__(self, ModelCls=AtariOcModel, **kwargs):
         super().__init__(ModelCls=ModelCls, **kwargs)
 
 
-class AtariOcLstmAgent(AtariMixin, RecurrentDiscreteOCAgent):
+class AtariOcLstmAgent(AtariMixin, RecurrentCategoricalOcAgent):
 
     def __init__(self, ModelCls=AtariOcModel, **kwargs):
         super().__init__(ModelCls=ModelCls, **kwargs)
 
 
 class AlternatingAtariOcLstmAgent(AtariMixin,
-        AlternatingRecurrentDiscreteOCAgent):
+                                  AlternatingRecurrentCategoricalOcAgent):
 
     def __init__(self, ModelCls=AtariOcModel, **kwargs):
         super().__init__(ModelCls=ModelCls, **kwargs)

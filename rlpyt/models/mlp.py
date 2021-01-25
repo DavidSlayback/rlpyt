@@ -12,6 +12,7 @@ class MlpModel(torch.nn.Module):
         hidden_sizes (list): can be empty list for none (linear model).
         output_size: linear layer at output, or if ``None``, the last hidden size will be the output size and will have nonlinearity applied
         nonlinearity: torch nonlinearity Module (not Functional).
+        inits (list/tuple): List/tuple of 2 init values. First is for main layers, second is for last layer
     """
 
     def __init__(

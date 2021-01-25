@@ -1,5 +1,5 @@
 from rlpyt.agents.pg.categorical import CategoricalPgAgent, RecurrentCategoricalPgAgent, AlternatingRecurrentCategoricalPgAgent
-from rlpyt.agents.pg.oc import DiscreteOCAgent, AlternatingDiscreteOCAgent, AlternatingRecurrentDiscreteOCAgent, RecurrentDiscreteOCAgent
+from rlpyt.agents.pg.oc import CategoricalOcAgent, AlternatingCategoricalOcAgent, AlternatingRecurrentCategoricalOcAgent, RecurrentCategoricalOcAgent
 from rlpyt.models.pg.procgen_ff_model import ProcgenFfModel, ProcgenOcModel
 
 class ProcgenMixin:
@@ -17,11 +17,11 @@ class ProcgenFfAgent(ProcgenMixin, CategoricalPgAgent):
     def __init__(self, ModelCls=ProcgenFfModel, **kwargs):
         super().__init__(ModelCls=ModelCls, **kwargs)
 
-class ProcgenOcAgent(ProcgenMixin, DiscreteOCAgent):
+class ProcgenOcAgent(ProcgenMixin, CategoricalOcAgent):
     def __init__(self, ModelCls=ProcgenOcModel, **kwargs):
         super().__init__(ModelCls=ModelCls, **kwargs)
 
-class AlternatingProcgenOcAgent(ProcgenMixin, AlternatingDiscreteOCAgent):
+class AlternatingProcgenOcAgent(ProcgenMixin, AlternatingCategoricalOcAgent):
     def __init__(self, ModelCls=ProcgenOcModel, **kwargs):
         super().__init__(ModelCls=ModelCls, **kwargs)
 

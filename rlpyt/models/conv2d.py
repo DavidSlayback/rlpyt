@@ -68,6 +68,8 @@ class Conv2dHeadModel(torch.nn.Module):
     """Model component composed of a ``Conv2dModel`` component followed by 
     a fully-connected ``MlpModel`` head.  Requires full input image shape to
     instantiate the MLP head.
+
+    inits (list/tuple): List/tuple of 2 init values. First is for main layers, second is for last layer
     """
 
     def __init__(
@@ -81,6 +83,7 @@ class Conv2dHeadModel(torch.nn.Module):
             paddings=None,
             nonlinearity=torch.nn.ReLU,
             use_maxpool=False,
+            inits=None
             ):
         super().__init__()
         c, h, w = image_shape
@@ -96,7 +99,7 @@ class Conv2dHeadModel(torch.nn.Module):
         conv_out_size = self.conv.conv_out_size(h, w)
         if hidden_sizes or output_size:
             self.head = MlpModel(conv_out_size, hidden_sizes,
-                output_size=output_size, nonlinearity=nonlinearity)
+                output_size=output_size, nonlinearity=nonlinearity, inits=inits)
             if output_size is not None:
                 self._output_size = output_size
             else:
