@@ -8,12 +8,12 @@ from rlpyt.distributions.categorical import Categorical, DistInfo
 from rlpyt.utils.buffer import buffer_to, buffer_func, buffer_method
 from rlpyt.utils.tensor import select_at_indexes
 
-class DiscreteOCAgentBase(BaseAgent):
+class CategoricalOCAgentBase(BaseAgent):
     def __call__(self, observation, prev_action, prev_reward, sampled_option, device="cpu"):
         prev_action = self.distribution.to_onehot(prev_action)
         model_inputs = buffer_to((observation, prev_action, prev_reward, sampled_option),
             device=self.device)
-        pi, q, beta, pi_omega = self.model(*model_inputs[:-1])
+        pi, beta, q, pi_omega = self.model(*model_inputs[:-1])
         return buffer_to((DistInfo(prob=select_at_indexes(sampled_option, pi)), q, beta, DistInfo(prob=pi_omega)), device=device)
 
     def initialize(self, env_spaces, share_memory=False,
@@ -28,7 +28,7 @@ class DiscreteOCAgentBase(BaseAgent):
         prev_action = self.distribution.to_onehot(prev_action)
         model_inputs = buffer_to((observation, prev_action, prev_reward),
             device=self.device)
-        pi, q, beta, pi_omega = self.model(*model_inputs)
+        pi, beta, q, pi_omega = self.model(*model_inputs)
         dist_info_omega = DistInfo(prob=pi_omega)
         new_o, terminations = self.sample_option(beta, dist_info_omega)  # Sample terminations and options
         dist_info = DistInfo(prob=pi)
@@ -46,17 +46,17 @@ class DiscreteOCAgentBase(BaseAgent):
         prev_action = self.distribution.to_onehot(prev_action)
         model_inputs = buffer_to((observation, prev_action, prev_reward),
             device=self.device)
-        _pi, q, beta, pi_omega = self.model(*model_inputs)
+        _pi, beta, q, pi_omega = self.model(*model_inputs)
         v = (q * pi_omega).sum(-1)  # Weight q value by probability of option. Average value if terminal
         q_prev_o = select_at_indexes(self.prev_option, q)
         beta_prev_o = select_at_indexes(self.prev_option, beta)
         value = q_prev_o * (1 - beta_prev_o) + v * beta_prev_o
         return value.to(device)
 
-class CategoricalOcAgent(OCAgentMixin, DiscreteOCAgentBase):
+class CategoricalOcAgent(OCAgentMixin, CategoricalOCAgentBase):
     pass
 
-class AlternatingCategoricalOcAgent(AlternatingOCAgentMixin, DiscreteOCAgentBase):
+class AlternatingCategoricalOcAgent(AlternatingOCAgentMixin, CategoricalOCAgentBase):
     pass
 
 
@@ -65,7 +65,7 @@ class RecurrentDiscreteOCAgentBase(BaseAgent):
         prev_action = self.distribution.to_onehot(prev_action)
         model_inputs = buffer_to((observation, prev_action, prev_reward, init_rnn_state, sampled_option),
             device=self.device)
-        pi, q, beta, pi_omega, next_rnn_state = self.model(*model_inputs[:-1], init_rnn_state)
+        pi, beta, q, pi_omega, next_rnn_state = self.model(*model_inputs[:-1], init_rnn_state)
         return buffer_to((DistInfo(prob=select_at_indexes(sampled_option, pi)), q, beta, DistInfo(prob=pi_omega)), device=device), next_rnn_state
 
     def initialize(self, env_spaces, share_memory=False,
@@ -80,7 +80,7 @@ class RecurrentDiscreteOCAgentBase(BaseAgent):
         prev_action = self.distribution.to_onehot(prev_action)
         model_inputs = buffer_to((observation, prev_action, prev_reward),
             device=self.device)
-        pi, q, beta, pi_omega, rnn_state = self.model(*model_inputs, self.prev_rnn_state)
+        pi, beta, q, pi_omega, rnn_state = self.model(*model_inputs, self.prev_rnn_state)
         dist_info_omega = DistInfo(prob=pi_omega)
         new_o, terminations = self.sample_option(beta, dist_info_omega)  # Sample terminations and options
         # Model handles None, but Buffer does not, make zeros if needed:
@@ -104,7 +104,7 @@ class RecurrentDiscreteOCAgentBase(BaseAgent):
         prev_action = self.distribution.to_onehot(prev_action)
         agent_inputs = buffer_to((observation, prev_action, prev_reward),
             device=self.device)
-        _pi, q, beta, pi_omega, _rnn_state = self.model(*agent_inputs, self.prev_rnn_state)
+        _pi, beta, q, pi_omega, _rnn_state = self.model(*agent_inputs, self.prev_rnn_state)
         v = (q * pi_omega).sum(-1)  # Weight q value by probability of option. Average value if terminal
         q_prev_o = select_at_indexes(self.prev_option, q)
         beta_prev_o = select_at_indexes(self.prev_option, beta)
@@ -125,7 +125,7 @@ class GaussianOCAgentBase(BaseAgent):
     def __call__(self, observation, prev_action, prev_reward, sampled_option, device="cpu"):
         """Performs forward pass on training data, for algorithm. Returns sampled distinfo, q, beta, and piomega distinfo"""
         model_inputs = buffer_to((observation, prev_action, prev_reward, sampled_option), device=self.device)
-        mu, log_std, q, beta, pi = self.model(*model_inputs[:-1])
+        mu, log_std, beta, q, pi = self.model(*model_inputs[:-1])
         # Need gradients from intra-option (DistInfoStd), q_o (q), termination (beta), and pi_omega (DistInfo)
         return buffer_to((DistInfoStd(mean=select_at_indexes(sampled_option, mu),
                                       log_std=select_at_indexes(sampled_option,
@@ -158,7 +158,7 @@ class GaussianOCAgentBase(BaseAgent):
         """
         model_inputs = buffer_to((observation, prev_action, prev_reward),
             device=self.device)
-        mu, log_std, q, beta, pi = self.model(*model_inputs)
+        mu, log_std, beta, q, pi = self.model(*model_inputs)
         dist_info_omega = DistInfo(prob=pi)
         new_o, terminations = self.sample_option(beta, dist_info_omega)  # Sample terminations and options
         dist_info = DistInfoStd(mean=mu, log_std=log_std)
@@ -183,7 +183,7 @@ class GaussianOCAgentBase(BaseAgent):
         """
         model_inputs = buffer_to((observation, prev_action, prev_reward),
             device=self.device)
-        _mu, _log_std, q, beta, pi = self.model(*model_inputs)  # [B, nOpt]
+        _mu, _log_std, beta, q, pi = self.model(*model_inputs)  # [B, nOpt]
         v = (q * pi).sum(-1)  # Weight q value by probability of option. Average value if terminal
         q_prev_o = select_at_indexes(self.prev_option, q)
         beta_prev_o = select_at_indexes(self.prev_option, beta)
@@ -206,7 +206,7 @@ class RecurrentGaussianOCAgentBase(BaseAgent):
         recurrent state input). Returnssampled distinfo, q, beta, and piomega distinfo"""
         # Assume init_rnn_state already shaped: [N,B,H]
         model_inputs = buffer_to((observation, prev_action, prev_reward, init_rnn_state, sampled_option), device=self.device)
-        mu, log_std, q, beta, pi, next_rnn_state = self.model(*model_inputs[:-1])
+        mu, log_std, beta, q, pi, next_rnn_state = self.model(*model_inputs[:-1])
         # Need gradients from intra-option (DistInfoStd), q_o (q), termination (beta), and pi_omega (DistInfo)
         dist_info, q, beta, dist_info_omega = buffer_to((DistInfoStd(mean=select_at_indexes(sampled_option, mu),
                                                                      log_std=select_at_indexes(sampled_option,
@@ -238,7 +238,7 @@ class RecurrentGaussianOCAgentBase(BaseAgent):
         """
         agent_inputs = buffer_to((observation, prev_action, prev_reward),
             device=self.device)
-        mu, log_std, q, beta, pi, rnn_state = self.model(*agent_inputs, self.prev_rnn_state)
+        mu, log_std, beta, q, pi, rnn_state = self.model(*agent_inputs, self.prev_rnn_state)
         terminations = torch.bernoulli(beta).bool()  # Sample terminations
         dist_info_omega = DistInfo(prob=pi)
         new_o = self.sample_option(terminations, dist_info_omega)
@@ -271,7 +271,7 @@ class RecurrentGaussianOCAgentBase(BaseAgent):
         """
         agent_inputs = buffer_to((observation, prev_action, prev_reward),
             device=self.device)
-        _mu, _log_std, q, beta, pi, _rnn_state = self.model(*agent_inputs, self.prev_rnn_state)
+        _mu, _log_std, beta, q, pi, _rnn_state = self.model(*agent_inputs, self.prev_rnn_state)
         v = (q * pi).sum(-1)  # Weight q value by probability of option. Average value if terminal
         q_prev_o = select_at_indexes(self.prev_option, q)
         beta_prev_o = select_at_indexes(self.prev_option, beta)

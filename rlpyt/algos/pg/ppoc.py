@@ -49,9 +49,9 @@ class PPOC(OCAlgo):
             clip_vf_loss=False,  # Clip VF_loss as in OpenAI?
             clip_pi_omega_loss=False,  # Clip policy over option loss in a similar way to PPO? Not done by others
             clip_beta_loss=False,
-            normalize_rewards='return',  # Can be 'return' (OpenAI, no mean subtraction), 'reward' (same as obs normalization) or None
-            rew_clip=(-10, 10),  # Additional clipping for reward
-            rew_min_var=1e-6  # Minimum variance in running mean for reward
+            normalize_rewards=None,  # Can be 'return' (OpenAI, no mean subtraction), 'reward' (same as obs normalization) or None
+            rew_clip=(-10, 10),  # Additional clipping for reward (if normalizing reward)
+            rew_min_var=1e-6  # Minimum variance in running mean for reward (if normalizing reward)
             ):
         """Saves input settings."""
         if optim_kwargs is None:

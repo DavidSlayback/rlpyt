@@ -122,7 +122,7 @@ class MujocoOCFfModel(torch.nn.Module):
         # Restore leading dimensions: [T,B], [B], or [], as input.
         mu, log_std, q, beta, pi, I = restore_leading_dims((mu, log_std, q, beta, pi, I), lead_dim, T, B)
         pi = pi * I  # Torch multinomial will normalize
-        return mu, log_std, q, beta, pi
+        return mu, log_std, beta, q, pi
 
     def update_obs_rms(self, observation):
         if self.normalize_observation:
@@ -167,7 +167,7 @@ class RefactoredMujocoOcFfModel(torch.nn.Module):
             input_size=input_size,
             input_module_class=body_mlp_class,
             output_size=action_size,
-            num_options=option_size,
+            option_size=option_size,
             intra_option_policy='continuous',
             intra_option_kwargs={'init_log_std': init_log_std, 'mu_nonlinearity': mu_nonlinearity},
             input_module_kwargs={},
@@ -209,7 +209,7 @@ class RefactoredMujocoOcFfModel(torch.nn.Module):
         log_std = logstd.repeat(T * B, 1, 1)
         # Restore leading dimensions: [T,B], [B], or [], as input.
         mu, log_std, q, beta, pi, q_ent = restore_leading_dims((mu, log_std, q, beta, pi_I, q_ent), lead_dim, T, B)
-        return mu, log_std, q, beta, pi
+        return mu, log_std, beta, q, pi
 
     def update_obs_rms(self, observation):
         if self.normalize_observation:

@@ -355,7 +355,6 @@ class OCAgentMixin:
 
     def sample_option(self, betas, option_dist_info):
         """Sample options according to which previous options are terminated and probability over options"""
-        # betas = betas.view(-1, self.n_opt)
         if self._prev_option is None:  # No previous option, store as -1
             self._prev_option = torch.full(betas.size()[:-1], -1,dtype=torch.long, device=betas.device)
         terminations = select_at_indexes(self._prev_option, torch.bernoulli(betas).bool())

@@ -19,4 +19,7 @@ dependencies:
   - ply
   - git+https://github.com/abaisero/one-to-one.git  # Andrea's one-to-one
   - git+https://github.com/abaisero/rl-parsers.git  # Andrea's rl_parsers
+  - gym-classics
+  - pandas
+  - seaborn
   - pyglet==1.5.14
