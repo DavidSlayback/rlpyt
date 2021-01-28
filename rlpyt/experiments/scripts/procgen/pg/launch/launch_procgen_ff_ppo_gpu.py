@@ -35,25 +35,28 @@ interest_key = [("model", "use_interest")]
 game_key = [("env", "game")]
 
 game_names = ["{}".format(*v) for v in games]
+delib_names = ["D_{}".format(*v) for v in OC_DELIB]
+
 # PPO
-# experiment_title = "PPO_Procgen"
-# variant_levels = list()
-# variant_levels.append(VariantLevel(game_key, games, game_names))  # Games
-# variants, log_dirs = make_variants(*variant_levels)
-# run_experiments(
-#     script=path_ppo,
-#     affinity_code=affinity_code,
-#     experiment_title=experiment_title,
-#     runs_per_setting=runs_per_setting,
-#     variants=variants,
-#     log_dirs=log_dirs,
-#     common_args=(default_key,),
-# )
+experiment_title = "PPO_Procgen"
+variant_levels = list()
+variant_levels.append(VariantLevel(game_key, games, game_names))  # Games
+variants, log_dirs = make_variants(*variant_levels)
+run_experiments(
+    script=path_ppo,
+    affinity_code=affinity_code,
+    experiment_title=experiment_title,
+    runs_per_setting=runs_per_setting,
+    variants=variants,
+    log_dirs=log_dirs,
+    common_args=(default_key,),
+)
 
 # PPOC
 experiment_title = "PPOC_Procgen"
 variant_levels = list()
 variant_levels.append(VariantLevel(game_key, games, game_names))  # Games
+variant_levels.append(VariantLevel(delib_key, OC_DELIB, delib_names))  # Deliberation cost
 variants, log_dirs = make_variants(*variant_levels)
 run_experiments(
     script=path_ppoc,

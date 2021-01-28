@@ -34,19 +34,19 @@ game_key = [("env", "task")]
 
 task_names = ["{}".format(*v) for v in tasks]
 
-# experiment_title = "PPO_Isaac"
-# variant_levels = list()
-# variant_levels.append(VariantLevel(game_key, tasks, task_names))  # Games
-# variants, log_dirs = make_variants(*variant_levels)
-# run_experiments(
-#     script=path_ppo,
-#     affinity_code=affinity_code,
-#     experiment_title=experiment_title,
-#     runs_per_setting=runs_per_setting,
-#     variants=variants,
-#     log_dirs=log_dirs,
-#     common_args=(default_key,),
-# )
+experiment_title = "PPO_Isaac"
+variant_levels = list()
+variant_levels.append(VariantLevel(game_key, tasks, task_names))  # Games
+variants, log_dirs = make_variants(*variant_levels)
+run_experiments(
+    script=path_ppo,
+    affinity_code=affinity_code,
+    experiment_title=experiment_title,
+    runs_per_setting=runs_per_setting,
+    variants=variants,
+    log_dirs=log_dirs,
+    common_args=(default_key,),
+)
 
 experiment_title = "PPOC_Isaac"
 variant_levels = list()
