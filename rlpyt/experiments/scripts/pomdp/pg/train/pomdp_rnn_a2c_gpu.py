@@ -30,6 +30,7 @@ def build_and_train(slot_affinity_code, log_dir, run_ID, config_key):
     config = configs[config_key]
     variant = load_variant(log_dir)
     config = update_config(config, variant)
+    config["algo_name"] = 'A2C_RNN'
 
     sampler = GpuSampler(
         EnvCls=pomdp_interface,
