@@ -35,10 +35,12 @@ named_colors = [
 
 
 def flatten(xs):
+    """ Same as flatten_list in core"""
     return [x for y in xs for x in y]
 
 
 def sliding_mean(data_array, window=5):
+    """Smooth mean across nparray using window"""
     data_array = np.array(data_array)
     new_list = []
     for i in range(len(data_array)):

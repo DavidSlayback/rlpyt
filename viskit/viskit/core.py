@@ -14,14 +14,20 @@ class AttrDict(dict):
 
 
 def unique(l):
+    """Unique elements in list"""
     return list(set(l))
 
 
 def flatten(l):
+    """Flatten nested sublist"""
     return [item for sublist in l for item in sublist]
 
 
 def load_progress(progress_csv_path):
+    """Load a specific progress.csv file
+
+    Returns dict(col_name: ndarray)
+    """
     print("Reading %s" % progress_csv_path)
     entries = dict()
     if progress_csv_path.split('.')[-1] == "csv":
@@ -62,6 +68,7 @@ def to_json(stub_object):
 
 
 def flatten_dict(d):
+    """Recursively flatten hierarchical dict"""
     flat_params = dict()
     for k, v in d.items():
         if isinstance(v, dict):
@@ -74,6 +81,7 @@ def flatten_dict(d):
 
 
 def load_params(params_json_path):
+    """Load params.json"""
     with open(params_json_path, 'r') as f:
         data = json.loads(f.read())
         if "args_data" in data:
@@ -84,6 +92,7 @@ def load_params(params_json_path):
 
 
 def lookup(d, keys):
+    """Get """
     if not isinstance(keys, list):
         keys = keys.split(".")
     for k in keys:
@@ -103,9 +112,10 @@ def load_exps_data(
         params_filename='params.json',
         disable_variant=False,
 ):
+    """Recursively walk from set of root directories"""
     exps = []
     for exp_folder_path in exp_folder_paths:
-        exps += [x[0] for x in os.walk(exp_folder_path)]
+        exps += [x[0] for x in os.walk(exp_folder_path)]  # Get root folders for each child directory (all children not just direct)
     exps_data = []
     for exp in exps:
         try:
@@ -133,6 +143,7 @@ def load_exps_data(
 
 
 def smart_repr(x):
+    """Pretty printing for different data types"""
     if isinstance(x, tuple):
         if len(x) == 0:
             return "tuple()"
@@ -157,6 +168,7 @@ def smart_repr(x):
 
 
 def smart_eval(string):
+    """Clear whitespace before attempting to eval string"""
     string = string.replace(',inf)', ',"inf")')
     return eval(string)
 
@@ -224,6 +236,7 @@ def exp_has_key_value(exp, k, v):
 
 
 class Selector(object):
+    """ Select from experiment data according to given filters"""
     def __init__(self, exps_data, filters=None, custom_filters=None):
         self._exps_data = exps_data
         if filters is None:
