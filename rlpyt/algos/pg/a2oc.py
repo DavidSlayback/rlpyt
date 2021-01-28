@@ -99,7 +99,7 @@ class A2OC(OCAlgo):
             # [B,N,H] --> [N,B,H] (for cudnn).
             init_rnn_state = buffer_method(init_rnn_state, "transpose", 0, 1)
             init_rnn_state = buffer_method(init_rnn_state, "contiguous")
-            dist_info_o, q, beta, dist_info_omega, _rnn_state = self.agent(*agent_inputs, init_rnn_state, device=agent_inputs.prev_action.device)
+            (dist_info_o, q, beta, dist_info_omega), _rnn_state = self.agent(*agent_inputs, init_rnn_state, device=agent_inputs.prev_action.device)
         else:
             dist_info_o, q, beta, dist_info_omega = self.agent(*agent_inputs, device=agent_inputs.prev_action.device)
         dist = self.agent.distribution

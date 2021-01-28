@@ -65,7 +65,7 @@ class RecurrentDiscreteOCAgentBase(BaseAgent):
         prev_action = self.distribution.to_onehot(prev_action)
         model_inputs = buffer_to((observation, prev_action, prev_reward, init_rnn_state, sampled_option),
             device=self.device)
-        pi, beta, q, pi_omega, next_rnn_state = self.model(*model_inputs[:-1], init_rnn_state)
+        pi, beta, q, pi_omega, next_rnn_state = self.model(*model_inputs[:-1])
         return buffer_to((DistInfo(prob=select_at_indexes(sampled_option, pi)), q, beta, DistInfo(prob=pi_omega)), device=device), next_rnn_state
 
     def initialize(self, env_spaces, share_memory=False,
@@ -91,7 +91,7 @@ class RecurrentDiscreteOCAgentBase(BaseAgent):
         dist_info = DistInfo(prob=pi)
         dist_info_o = DistInfo(prob=select_at_indexes(new_o, pi))
         action = self.distribution.sample(dist_info_o)
-        agent_info = AgentInfoOC(dist_info=dist_info, dist_info_o=dist_info_o, q=q, value=(pi_omega * q).sum(-1),
+        agent_info = AgentInfoOCRnn(dist_info=dist_info, dist_info_o=dist_info_o, q=q, value=(pi_omega * q).sum(-1),
                                  termination=terminations, dist_info_omega=dist_info_omega, prev_o=self._prev_option,
                                  o=new_o, prev_rnn_state=prev_rnn_state)
         action, agent_info = buffer_to((action, agent_info), device=device)
