@@ -34,6 +34,7 @@ config = dict(
 configs['hallway_5e5'] = config
 config = deepcopy(config)
 config['model'] = {**config['model'], **base_oc_args}
+config['algo'] = {**config['algo'], **{'delib_cost': 0.}}
 configs['hallway_5e5_oc'] = config
 config = deepcopy(configs['hallway_5e5'])
 config['model'] = {**config['model'], **base_rnn_args}
