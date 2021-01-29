@@ -1,11 +1,11 @@
 from copy import deepcopy
 
 # Common args
-batch_T = 20
-batch_B = 30
-nsteps = 5e5
+batch_T = 100  # Updated to match episode size from Chris's advice
+batch_B = 30  # Reduce for larger POMDPs
+nsteps = 5e5  # Is fine for hallway1, bump for hallway2 and rocksample
 
-base_sampler_args = dict(batch_T=batch_T, batch_B=batch_B, max_decorrelation_steps=50)
+base_sampler_args = dict(batch_T=batch_T, batch_B=batch_B, max_decorrelation_steps=0)
 base_runner_args = dict(n_steps=nsteps, log_interval_steps=1e3, seed=None)
 base_env_args = dict(fomdp=False, id='POMDP-hallway-continuing-v0', time_limit=100)  # Partially-observable, time_limit as in cassandra's thesis
 base_oc_args = dict(option_size=4, use_interest=False, use_diversity=False, use_attention=False)  # OC model args
