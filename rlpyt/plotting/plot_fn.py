@@ -67,7 +67,7 @@ def load_one_csv(progress_csv_path):
 
 def load_all_csv_and_param(parent_directory):
     """Take above, apply to all runs in directory"""
-    runs = [osp.join(parent_directory, d) for d in os.listdir(parent_directory)]  # Run directories
+    runs = [osp.join(parent_directory, d) for d in os.listdir(parent_directory) if d != MERGE_KEY]  # Run directories
     runs = [d for d in runs if osp.isdir(d)]
     runs_csv = [osp.join(d, PROG) for d in runs]  # Run csvs
     run_params = osp.join(runs[0], PARAMS)  # One params file is fine
@@ -126,19 +126,31 @@ def load_one_params(params_json_path):
     return data
 
 if __name__ == "__main__":
+    d1 = '/home/zhef-home/Documents/GitHub/rlpyt/data/local/20210128'
+    all_dirs = [d for d in os.walk(d1)]
+    direct_parent_dirs = [d for d in all_dirs if VAR_CONFIG in d[2]]
+    for d in direct_parent_dirs:
+        entries, params = load_all_csv_and_param(d[0])
+        if entries:
+            entries = combine_entries(entries)
+            run_dir = osp.join(d[0], MERGE_KEY)
+            os.makedirs(run_dir, exist_ok=True)
+            json.dump(params, open(osp.join(run_dir, PARAMS), 'w'))  # Dump params
+            df = pd.DataFrame(entries)  # Construct df and dump
+            df.to_csv(osp.join(run_dir, PROG), index=False)
     example = '/home/david/Documents/GitHub/rlpyt/data/local/20210119/202536/PPOC_Isaac/Ant/run_0/'
     # all_dirs = [d for d in os.walk(parent_directory)]
-    direct_parent_directory = '/home/david/Documents/GitHub/rlpyt/data/local/20210119/202536/PPOC_Isaac/Ant'
-    entries, params = load_all_csv_and_param('/home/david/Documents/GitHub/rlpyt/data/local/20210119/202536/PPOC_Isaac/Ant')
-    entries = combine_entries(entries)
-    run_dir = osp.join(direct_parent_directory, MERGE_KEY)
-    os.makedirs(run_dir, exist_ok=True)
-    json.dump(params, open(osp.join(run_dir, PARAMS), 'w'))  # Dump params
-    df = pd.DataFrame(entries)  # Construct df and dump
-    df.to_csv(osp.join(run_dir, PROG), index=False)
-
-
-    print(3)
+    # direct_parent_directory = '/home/david/Documents/GitHub/rlpyt/data/local/20210119/202536/PPOC_Isaac/Ant'
+    # entries, params = load_all_csv_and_param('/home/david/Documents/GitHub/rlpyt/data/local/20210119/202536/PPOC_Isaac/Ant')
+    # entries = combine_entries(entries)
+    # run_dir = osp.join(direct_parent_directory, MERGE_KEY)
+    # os.makedirs(run_dir, exist_ok=True)
+    # json.dump(params, open(osp.join(run_dir, PARAMS), 'w'))  # Dump params
+    # df = pd.DataFrame(entries)  # Construct df and dump
+    # df.to_csv(osp.join(run_dir, PROG), index=False)
+    #
+    #
+    # print(3)
     # os.walk: (dirpath, dirnames, filenames)
     # There will be a variant_config.json file at the parent directory above runs
     # There is progress.csv, params in each run
