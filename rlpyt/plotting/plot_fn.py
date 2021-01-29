@@ -103,7 +103,7 @@ def combine_entries(entries):
         avg_k = k[:-3] + 'Average'  # Get mean for calculation
         all_avg = entries[avg_k]  # Mean for each group
         # Compute weighted average here
-        entries[avg_k] = np.nansum(entries[k] * SAMPLE_SIZES / TOTAL_SAMPLE_SIZES, axis=-1)
+        entries[avg_k] = np.nansum(entries[avg_k] * SAMPLE_SIZES / TOTAL_SAMPLE_SIZES, axis=-1)
         x = SAMPLE_SIZES * all_avg
         tx = np.nansum(x, axis=-1)
         var = entries[k] ** 2  # Variance is std squared
