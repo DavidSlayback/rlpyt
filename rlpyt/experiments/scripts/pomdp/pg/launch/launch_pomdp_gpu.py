@@ -37,10 +37,12 @@ FOMDP = list(zip([False, True]))
 INTEREST = list(zip([False, True]))  # Interest is better. 2 options is equivalent. Delib cost of 0-0.05
 NUM_OPTIONS = list(zip([2, 4]))
 OC_DELIB = list(zip([0., 0.05, 0.5]))
-# ENVS = list(zip(list(OPTIMAL_RETURNS.keys())))  # All environments with comparable optimal returns
+ENVS = list(zip(list(OPTIMAL_RETURNS.keys())))  # All environments with comparable optimal returns
 ENVS = list(zip(['POMDP-hallway-continuing-v0', 'POMDP-hallway2-continuing-v0', ]))# 'POMDP-rock_sample_5_6-continuing-v0']))  # Subselect
 ENV = list(zip(['POMDP-rock_sample_5_4-continuing-v2']))  # Subselect
-ENVS_PLUS_PARAMS = list(zip([30, 30], [100, 100], ['POMDP-hallway-continuing-v0', 'POMDP-hallway2-continuing-v0'], [int(5e5), int(2e6)]))  # B, T, ENVS, N_STEPS
+# ENVS_PLUS_PARAMS = list(zip([30, 30], [100, 100], ['POMDP-hallway-continuing-v0', 'POMDP-hallway2-continuing-v0'], [int(5e5), int(2e6)]))  # B, T, ENVS, N_STEPS
+ENVS_PLUS_PARAMS = list(zip([30, 30], [100, 100], ['POMDP-hallway-episodic-v0', 'POMDP-hallway2-episodic-v0'], [int(1e6), int(3e6)]))  # B, T, ENVS, N_STEPS
+
 ENV_PLUS_B_T = list(zip([6], [100], ['POMDP-rock_sample_5_4-continuing-v2']))
 # Variant keys
 lr_key = [("algo", "learning_rate")]
@@ -91,8 +93,8 @@ variant_levels = list()
 # variant_levels.append(VariantLevel(B_T_env_key, ENVS_PLUS_B_T, env_names))  # pomdps
 variant_levels.append(VariantLevel(envs_plus_params_key, ENVS_PLUS_PARAMS, env_names))  # pomdps
 variant_levels.append(VariantLevel(fomdp_key, FOMDP, obs_names))  # full or partial observability
-variant_levels.append(VariantLevel(rnn_type_key, RNN, rnn_names))  # Types of recurrency
-variant_levels.append(VariantLevel(rnn_size_key, RNN_SIZE, rnn_size_names))  # Sizes of recurrency
+# variant_levels.append(VariantLevel(rnn_type_key, RNN, rnn_names))  # Types of recurrency
+# variant_levels.append(VariantLevel(rnn_size_key, RNN_SIZE, rnn_size_names))  # Sizes of recurrency
 variants, log_dirs = make_variants(*variant_levels)
 run_experiments(
     script=path_a2c_rnn,
@@ -110,8 +112,8 @@ variant_levels = list()
 # variant_levels.append(VariantLevel(B_T_env_key, ENVS_PLUS_B_T, env_names))  # pomdps
 variant_levels.append(VariantLevel(envs_plus_params_key, ENVS_PLUS_PARAMS, env_names))  # pomdps
 variant_levels.append(VariantLevel(fomdp_key, FOMDP, obs_names))  # full or partial observability
-variant_levels.append(VariantLevel(delib_key, OC_DELIB, delib_names))  # Option deliberation cost
-variant_levels.append(VariantLevel(nopt_key, NUM_OPTIONS, nopt_names))  # Number of options
+# variant_levels.append(VariantLevel(delib_key, OC_DELIB, delib_names))  # Option deliberation cost
+# variant_levels.append(VariantLevel(nopt_key, NUM_OPTIONS, nopt_names))  # Number of options
 variant_levels.append(VariantLevel(interest_key, INTEREST, int_names))  # Use of interest function
 variants, log_dirs = make_variants(*variant_levels)
 run_experiments(
@@ -130,11 +132,11 @@ variant_levels = list()
 # variant_levels.append(VariantLevel(B_T_env_key, ENVS_PLUS_B_T, env_names))  # pomdps
 variant_levels.append(VariantLevel(envs_plus_params_key, ENVS_PLUS_PARAMS, env_names))  # pomdps
 variant_levels.append(VariantLevel(fomdp_key, FOMDP, obs_names))  # full or partial observability
-variant_levels.append(VariantLevel(delib_key, OC_DELIB, delib_names))  # Option deliberation cost
-variant_levels.append(VariantLevel(nopt_key, NUM_OPTIONS, nopt_names))  # Number of options
+# variant_levels.append(VariantLevel(delib_key, OC_DELIB, delib_names))  # Option deliberation cost
+# variant_levels.append(VariantLevel(nopt_key, NUM_OPTIONS, nopt_names))  # Number of options
 variant_levels.append(VariantLevel(interest_key, INTEREST, int_names))  # Use of interest function
-variant_levels.append(VariantLevel(rnn_type_key, RNN, rnn_names))  # Types of recurrency
-variant_levels.append(VariantLevel(rnn_size_key, RNN_SIZE, rnn_size_names))  # Sizes of recurrency
+# variant_levels.append(VariantLevel(rnn_type_key, RNN, rnn_names))  # Types of recurrency
+# variant_levels.append(VariantLevel(rnn_size_key, RNN_SIZE, rnn_size_names))  # Sizes of recurrency
 variants, log_dirs = make_variants(*variant_levels)
 run_experiments(
     script=path_a2oc_rnn,
