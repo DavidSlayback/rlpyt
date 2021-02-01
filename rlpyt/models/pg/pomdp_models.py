@@ -11,6 +11,7 @@ from rlpyt.utils.tensor import infer_leading_dims, restore_leading_dims
 
 from rlpyt.utils.collections import namedarraytuple
 RnnState = namedarraytuple("RnnState", ["h", "c"])  # For downstream namedarraytuples to work
+GruState = namedarraytuple("GruState", ["h"])
 class POMDPFfModel(nn.Module):
     """ Basic feedforward actor-critic model for discrete state space
 
@@ -101,9 +102,9 @@ class POMDPRnnModel(nn.Module):
         pi, v = restore_leading_dims((pi, v), lead_dim, T, B)
         # Model should always leave B-dimension in rnn state: [N,B,H].
         if self.rnn_type == 'gru':
-            next_rnn_state = RnnState(h=h, c=h)  # Easiest hack, just toss in the state twice
+            next_rnn_state = GruState(h=h)
         else:
-            next_rnn_state = RnnState(h=h[0], c=h[1])
+            next_rnn_state = RnnState(*h)
         return pi, v, next_rnn_state
 
 class POMDPOcFfModel(nn.Module):
@@ -169,8 +170,13 @@ class POMDPOcRnnModel(nn.Module):
         output_size (int): Size of action space
         option_size (int): Number of options
         hidden_sizes (list): can be empty list for none (linear model).
+        rnn_type (str): Either 'gru' or 'lstm'
+        rnn_size (int): Number of units in recurrent layer
         inits: tuple(ints): Orthogonal initialization for base, value, and policy (or None for standard init)
         nonlinearity (nn.Module): Nonlinearity applied in MLP component
+        use_interest (bool): Use an interest function (IOC)
+        use_diversity (bool): Use termination diversity objective (TDEOC)
+        use_attention(bool): Use attention mechanism (AOC)
     """
     def __init__(self,
                  input_classes: int,
@@ -233,11 +239,12 @@ class POMDPOcRnnModel(nn.Module):
         pi, beta, q, pi_omega, q_ent = restore_leading_dims((pi, beta, q, pi_omega, q_ent), lead_dim, T, B)
         # Model should always leave B-dimension in rnn state: [N,B,H].
         if self.rnn_type == 'gru':
-            next_rnn_state = RnnState(h=h, c=h)  # Easiest hack, just toss in the state twice
+            next_rnn_state = GruState(h=h)
         else:
-            next_rnn_state = RnnState(h=h[0], c=h[1])
+            next_rnn_state = RnnState(*h)
         return pi, beta, q, pi_omega, next_rnn_state
 
 if __name__ == "__main__":
     test = POMDPFfModel(input_classes=10, output_size=2)
+    test2 = POMDPOcRnnModel(input_classes=10, output_size=2, option_size=4, hidden_sizes=[64,64])
     print(3)

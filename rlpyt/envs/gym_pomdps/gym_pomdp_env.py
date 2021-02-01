@@ -64,7 +64,7 @@ class POMDPEnv(Env):
     def step(self, action):
         o, r, d, info = self.env.step(action)
         self.time_elapsed += 1
-        if self.time_limit is not None: d = self.time_elapsed >= self.time_limit
+        if self.time_limit is not None: d = self.time_elapsed >= self.time_limit or d
         return EnvStep(np.array(o), r, d, EnvInfo(**info, state=self.state))
 
     def reset(self):
@@ -87,7 +87,7 @@ class FOMDPEnv(Env):
         self.discount = self.env.discount
         self._action_space = IntBox(low=0, high=self.env.action_space.n)
         nobs = self.env.observation_space.n
-        self._observation_space = IntBox(low=0, high=self.env.state_space.n)  # state
+        self._observation_space = IntBox(low=0, high=self.env.state_space.n)  # state == -1 if episodic
         self._start_obs = nobs
         self.time_limit = time_limit
         self.time_elapsed = 0
@@ -95,7 +95,7 @@ class FOMDPEnv(Env):
     def step(self, action):
         o, r, d, info = self.env.step(action)
         self.time_elapsed += 1
-        if self.time_limit is not None: d = self.time_elapsed >= self.time_limit
+        if self.time_limit is not None: d = self.time_elapsed >= self.time_limit or d
         return EnvStep(np.array(self.state), r, d, EnvInfo(**info, state=self.state))
 
     def reset(self):
