@@ -11,7 +11,7 @@ from rlpyt.utils.tensor import infer_leading_dims, restore_leading_dims
 
 from rlpyt.utils.collections import namedarraytuple
 RnnState = namedarraytuple("RnnState", ["h", "c"])  # For downstream namedarraytuples to work
-GruState = namedarraytuple("RnnState", ["h"])
+GruState = namedarraytuple("GruState", ["h"])
 class POMDPFfModel(nn.Module):
     """ Basic feedforward actor-critic model for discrete state space
 

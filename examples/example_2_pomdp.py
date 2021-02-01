@@ -45,7 +45,7 @@ def build_and_train(env_id="POMDP-hallway-episodic-v0", run_ID=0, cuda_idx=None,
     model_kwargs = dict(hidden_sizes=[64, 64], rnn_type='gru', rnn_size=128)
     # model_kwargs = dict(hidden_sizes=[64, 64], option_size=4, use_interest=False, use_diversity=False, use_attention=False)
     # model_kwargs = dict(hidden_sizes=[64, 64], option_size=4, use_interest=False, use_diversity=False,
-    #                     use_attention=False, rnn_type='lstm', rnn_size=128)
+    #                     use_attention=False, rnn_type='gru', rnn_size=128)
 
     # Samplers
     # sampler = AlternatingSampler(
