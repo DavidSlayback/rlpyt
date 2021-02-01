@@ -42,8 +42,8 @@ def build_and_train(env_id="POMDP-hallway-episodic-v0", run_ID=0, cuda_idx=None,
     # Model kwargs
     # model_kwargs = dict()
     # model_kwargs = dict(hidden_sizes=[64, 64])
-    # model_kwargs = dict(hidden_sizes=[64, 64], rnn_type='gru', rnn_size=128)
-    model_kwargs = dict(hidden_sizes=[64, 64], option_size=4, use_interest=False, use_diversity=False, use_attention=False)
+    model_kwargs = dict(hidden_sizes=[64, 64], rnn_type='gru', rnn_size=128)
+    # model_kwargs = dict(hidden_sizes=[64, 64], option_size=4, use_interest=False, use_diversity=False, use_attention=False)
     # model_kwargs = dict(hidden_sizes=[64, 64], option_size=4, use_interest=False, use_diversity=False,
     #                     use_attention=False, rnn_type='lstm', rnn_size=128)
 
@@ -73,13 +73,13 @@ def build_and_train(env_id="POMDP-hallway-episodic-v0", run_ID=0, cuda_idx=None,
     )
 
     # Algos (swapping out discount)
-    # algo = A2C(discount=gamma, learning_rate=lr, clip_grad_norm=2.)
-    algo = A2OC(discount=gamma, learning_rate=lr, clip_grad_norm=2.)
+    algo = A2C(discount=gamma, learning_rate=lr, clip_grad_norm=2.)
+    # algo = A2OC(discount=gamma, learning_rate=lr, clip_grad_norm=2.)
 
     # Agents
     # agent = PomdpFfAgent(model_kwargs=model_kwargs)
-    # agent = PomdpRnnAgent(model_kwargs=model_kwargs)
-    agent = PomdpOcFfAgent(model_kwargs=model_kwargs)
+    agent = PomdpRnnAgent(model_kwargs=model_kwargs)
+    # agent = PomdpOcFfAgent(model_kwargs=model_kwargs)
     # agent = PomdpOcRnnAgent(model_kwargs=model_kwargs)
     # agent = AlternatingPomdpRnnAgent(model_kwargs=model_kwargs)
     # agent = AlternatingPomdpRnnAgent(model_kwargs=model_kwargs)
@@ -102,7 +102,7 @@ def build_and_train(env_id="POMDP-hallway-episodic-v0", run_ID=0, cuda_idx=None,
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--env_id', help='environment ID', default='POMDP-rock_sample_7_8-continuing-v0')
+    parser.add_argument('--env_id', help='environment ID', default='POMDP-hallway-episodic-v0')
     parser.add_argument('--run_ID', help='run identifier (logging)', type=int, default=0)
     parser.add_argument('--cuda_idx', help='gpu to use ', type=int, default=0)
     parser.add_argument('--fomdp', help='Set true if fully observable ', type=bool, default=True)
