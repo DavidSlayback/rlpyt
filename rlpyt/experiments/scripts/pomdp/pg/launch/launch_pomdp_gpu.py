@@ -4,6 +4,11 @@ from rlpyt.utils.launching.exp_launcher import run_experiments
 from rlpyt.utils.launching.variant import make_variants, VariantLevel
 from rlpyt.envs.gym_pomdps.gym_pomdp_env import OPTIMAL_RETURNS
 
+# Takeaways from graphs
+# Best RNN: 256 (vs 128, 64) unit gru (vs lstm)
+# 2 and 4 options are equivalent
+# 0 and 0.05 deliberation costs are equivalent
+# 
 affinity_code = encode_affinity(
     n_cpu_core=6,
     n_gpu=1,
@@ -25,10 +30,11 @@ default_key_rnn = 'hallway_5e5_rnn'
 oc_key_rnn = 'hallway_5e5_rnn_oc'
 # Param options
 RNN = list(zip(['lstm', 'gru']))
+# ***BEST RNN: 256 size gru***
 # RNN = list(zip(['lstm']))
 RNN_SIZE = list(zip([64, 128, 256]))
 FOMDP = list(zip([False, True]))
-INTEREST = list(zip([False, True]))
+INTEREST = list(zip([False, True]))  # Interest is better. 2 options is equivalent. Delib cost of 0-0.05
 NUM_OPTIONS = list(zip([2, 4]))
 OC_DELIB = list(zip([0., 0.05, 0.5]))
 # ENVS = list(zip(list(OPTIMAL_RETURNS.keys())))  # All environments with comparable optimal returns
