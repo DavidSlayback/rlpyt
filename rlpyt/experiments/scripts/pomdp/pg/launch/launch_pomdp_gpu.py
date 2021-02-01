@@ -59,7 +59,8 @@ B_T_env_key = batch_B_key + batch_T_key + game_key
 envs_plus_params_key = batch_B_key + batch_T_key + game_key + nstep_key
 fomdp_key = [("env", "fomdp")]
 # Common directory names
-env_names = ["{}".format(*v) for v in ENVS]
+# env_names = ["{}".format(*v) for v in ENVS]
+env_names = ["{}".format(*v) for v in ENV]
 env_name = ["{}".format(*v) for v in ENV]
 rnn_names = ["{}".format(*v) for v in RNN]
 rnn_size_names = ["RNNH_{}".format(*v) for v in RNN_SIZE]
@@ -71,8 +72,8 @@ nopt_names = ["NOPT_{}".format(*v) for v in NUM_OPTIONS]
 # A2C
 experiment_title = "A2C_Pomdp"
 variant_levels = list()
-# variant_levels.append(VariantLevel(B_T_env_key, ENVS_PLUS_B_T, env_names))  # pomdps
-variant_levels.append(VariantLevel(envs_plus_params_key, ENVS_PLUS_PARAMS, env_names))  # pomdps
+variant_levels.append(VariantLevel(B_T_env_key, ENV_PLUS_B_T, env_names))  # pomdps
+# variant_levels.append(VariantLevel(envs_plus_params_key, ENVS_PLUS_PARAMS, env_names))  # pomdps
 variant_levels.append(VariantLevel(fomdp_key, FOMDP, obs_names))  # full or partial observability
 variants, log_dirs = make_variants(*variant_levels)
 run_experiments(
@@ -88,8 +89,8 @@ run_experiments(
 # A2C RNN
 experiment_title = "A2CRnn_Pomdp"
 variant_levels = list()
-# variant_levels.append(VariantLevel(B_T_env_key, ENVS_PLUS_B_T, env_names))  # pomdps
-variant_levels.append(VariantLevel(envs_plus_params_key, ENVS_PLUS_PARAMS, env_names))  # pomdps
+variant_levels.append(VariantLevel(B_T_env_key, ENV_PLUS_B_T, env_names))  # pomdps
+# variant_levels.append(VariantLevel(envs_plus_params_key, ENVS_PLUS_PARAMS, env_names))  # pomdps
 variant_levels.append(VariantLevel(fomdp_key, FOMDP, obs_names))  # full or partial observability
 variant_levels.append(VariantLevel(rnn_type_key, RNN, rnn_names))  # Types of recurrency
 variant_levels.append(VariantLevel(rnn_size_key, RNN_SIZE, rnn_size_names))  # Sizes of recurrency
@@ -107,8 +108,8 @@ run_experiments(
 # A2OC
 experiment_title = "A2OC_Pomdp"
 variant_levels = list()
-# variant_levels.append(VariantLevel(B_T_env_key, ENVS_PLUS_B_T, env_names))  # pomdps
-variant_levels.append(VariantLevel(envs_plus_params_key, ENVS_PLUS_PARAMS, env_names))  # pomdps
+variant_levels.append(VariantLevel(B_T_env_key, ENV_PLUS_B_T, env_names))  # pomdps
+# variant_levels.append(VariantLevel(envs_plus_params_key, ENVS_PLUS_PARAMS, env_names))  # pomdps
 variant_levels.append(VariantLevel(fomdp_key, FOMDP, obs_names))  # full or partial observability
 variant_levels.append(VariantLevel(delib_key, OC_DELIB, delib_names))  # Option deliberation cost
 variant_levels.append(VariantLevel(nopt_key, NUM_OPTIONS, nopt_names))  # Number of options
@@ -127,8 +128,8 @@ run_experiments(
 # A2OC RNN
 experiment_title = "A2OCRnn_Pomdp"
 variant_levels = list()
-# variant_levels.append(VariantLevel(B_T_env_key, ENVS_PLUS_B_T, env_names))  # pomdps
-variant_levels.append(VariantLevel(envs_plus_params_key, ENVS_PLUS_PARAMS, env_names))  # pomdps
+variant_levels.append(VariantLevel(B_T_env_key, ENV_PLUS_B_T, env_names))  # pomdps
+# variant_levels.append(VariantLevel(envs_plus_params_key, ENVS_PLUS_PARAMS, env_names))  # pomdps
 variant_levels.append(VariantLevel(fomdp_key, FOMDP, obs_names))  # full or partial observability
 variant_levels.append(VariantLevel(delib_key, OC_DELIB, delib_names))  # Option deliberation cost
 variant_levels.append(VariantLevel(nopt_key, NUM_OPTIONS, nopt_names))  # Number of options
