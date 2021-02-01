@@ -64,7 +64,7 @@ class POMDPEnv(Env):
     def step(self, action):
         o, r, d, info = self.env.step(action)
         self.time_elapsed += 1
-        if self.time_limit is not None: d = self.time_elapsed >= self.time_limit
+        if self.time_limit is not None: d = self.time_elapsed >= self.time_limit or d
         return EnvStep(np.array(o), r, d, EnvInfo(**info, state=self.state))
 
     def reset(self):

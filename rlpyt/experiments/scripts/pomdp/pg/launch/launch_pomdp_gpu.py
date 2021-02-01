@@ -39,6 +39,8 @@ NUM_OPTIONS = list(zip([2, 4]))
 OC_DELIB = list(zip([0., 0.05, 0.5]))
 ENVS = list(zip(list(OPTIMAL_RETURNS.keys())))  # All environments with comparable optimal returns
 ENVS = list(zip(['POMDP-hallway-continuing-v0', 'POMDP-hallway2-continuing-v0', ]))# 'POMDP-rock_sample_5_6-continuing-v0']))  # Subselect
+ENVS = list(zip(['POMDP-hallway-episodic-v0', 'POMDP-hallway2-episodic-v0']))# 'POMDP-rock_sample_5_6-continuing-v0']))  # Subselect
+
 ENV = list(zip(['POMDP-rock_sample_5_4-continuing-v2']))  # Subselect
 # ENVS_PLUS_PARAMS = list(zip([30, 30], [100, 100], ['POMDP-hallway-continuing-v0', 'POMDP-hallway2-continuing-v0'], [int(5e5), int(2e6)]))  # B, T, ENVS, N_STEPS
 ENVS_PLUS_PARAMS = list(zip([30, 30], [100, 100], ['POMDP-hallway-episodic-v0', 'POMDP-hallway2-episodic-v0'], [int(1e6), int(3e6)]))  # B, T, ENVS, N_STEPS
