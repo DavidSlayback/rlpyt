@@ -36,7 +36,7 @@ def build_and_train(env_id="Taxi-v3", run_ID=0, cuda_idx=None, n_parallel=6, fom
     EnvCls = gym_make if fomdp else make_po_taxi
     env_args = dict(id=env_id)
     affinity = dict(cuda_idx=cuda_idx, workers_cpus=list(range(n_parallel)), alternating=True)
-    lr = 1e-3
+    lr = 1e-2
 
     # Model kwargs
     # model_kwargs = dict()
@@ -72,8 +72,8 @@ def build_and_train(env_id="Taxi-v3", run_ID=0, cuda_idx=None, n_parallel=6, fom
     )
 
     # Algos (swapping out discount)
-    algo = A2C(learning_rate=lr, clip_grad_norm=2.)
-    # algo = A2OC(discount=gamma, learning_rate=lr, clip_grad_norm=2.)
+    algo = A2C(discount=0.618, learning_rate=lr, entropy_loss_coeff=0.01, normalize_advantage=True)
+    # algo = A2OC(discount=0.618, learning_rate=lr, clip_grad_norm=2.)
 
     # Agents
     agent = PomdpFfAgent(model_kwargs=model_kwargs)
@@ -87,7 +87,7 @@ def build_and_train(env_id="Taxi-v3", run_ID=0, cuda_idx=None, n_parallel=6, fom
         algo=algo,
         agent=agent,
         sampler=sampler,
-        n_steps=1e6,
+        n_steps=1e7,
         log_interval_steps=1e3,
         affinity=affinity,
     )

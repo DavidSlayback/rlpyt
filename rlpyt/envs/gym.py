@@ -7,6 +7,7 @@ from collections import namedtuple
 import paper_gym
 import gym_minigrid
 import gym_miniworld
+import gym_classics
 
 from rlpyt.envs.base import EnvSpaces, EnvStep
 from rlpyt.envs.wrappers import RLPYT_WRAPPER_KEY
@@ -72,8 +73,7 @@ class GymEnvWrapper(Wrapper):
         if a.size == 1: a = a.item()
         o, r, d, info = self.env.step(a)
         obs = self.observation_space.convert(o)
-        if isinstance(obs, int):
-            obs = np.asarray(obs)
+        obs = np.asarray(obs)
         if self._time_limit:
             if "TimeLimit.truncated" in info:
                 info["timeout"] = info.pop("TimeLimit.truncated")

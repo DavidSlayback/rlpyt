@@ -74,8 +74,6 @@ class OCBuffer:
             self,
             timestep: dm_env.TimeStep,
             action: base.Action,
-            prev_o: base.Action,
-            o: base.Action,
             new_timestep: dm_env.TimeStep,
     ):
         """Appends an observation, action, reward, and discount to the buffer."""
@@ -90,8 +88,6 @@ class OCBuffer:
 
         # Append (o, a, r, d) to the sequence buffer.
         self._observations[self._t + 1] = new_timestep.observation
-        self._prev_o[self._t] = prev_o
-        self._o[self._t] = o
         self._actions[self._t] = action
         self._rewards[self._t] = new_timestep.reward
         self._discounts[self._t] = new_timestep.discount
@@ -101,6 +97,15 @@ class OCBuffer:
         # It is up to the caller to drain the buffer in this case.
         if new_timestep.last():
             self._needs_reset = True
+
+    def append_options(self,
+                       prev_o: base.Action,
+                       o: base.Action,
+                       ):
+        if self.full():
+            raise ValueError('Cannot append; sequence buffer is full.')
+        self._prev_o[self._t] = prev_o
+        self._o[self._t] = o
 
     def drain(self) -> OCTrajectory:
         """Empties the buffer and returns the (possibly partial) trajectory."""
@@ -221,15 +226,24 @@ class OptionCritic(base.Agent):
     key = next(self._rng)
     observation = timestep.observation[None, ...]
     logits, beta, q, pi_omega = self._forward(self._state.params, observation)
-    logits, _ = self._forward(self._state.params, observation)
+    prev_o = self._state.prev_o
+    
+    # logits, _ = self._forward(self._state.params, observation)
     action = jax.random.categorical(key, logits).squeeze()
     return int(action)
 
-  def select_option(self):
-      pass
+  def _select_option(self, pi_omega: jnp.ndarray) -> base.Action:
+      """Selects options according to a softmax policy"""
+      key = next(self._rng)
+      option = jax.random.categorical(key, pi_omega).squeeze()
+      return int(option)
 
-  def _sample_termination(self):
-      pass
+  def _sample_termination(self, beta: jnp.ndarray) -> bool:
+      """Determines termination from termination probabilities"""
+      key = next(self._rng)
+      termination = jax.random.bernoulli(key, beta)
+      return bool(termination)
+
   def update(
       self,
       timestep: dm_env.TimeStep,
