@@ -24,7 +24,7 @@ class PolicyGradientAlgo(RlAlgorithm):
     opt_info_fields = tuple(f for f in OptInfo._fields)  # copy
 
     def initialize(self, agent, n_itr, batch_spec, mid_batch_reset=False,
-            examples=None, world_size=1, rank=0):
+            examples=None, world_size=1, rank=0, n_episode=0):
         """
         Build the torch optimizer and store other input attributes. Params
         ``batch_spec`` and ``examples`` are unused.
@@ -35,6 +35,7 @@ class PolicyGradientAlgo(RlAlgorithm):
             self.optimizer.load_state_dict(self.initial_optim_state_dict)
         self.agent = agent
         self.n_itr = n_itr
+        self.n_episode = n_episode
         self.batch_spec = batch_spec
         self.mid_batch_reset = mid_batch_reset
         self.rank = rank
@@ -96,7 +97,7 @@ class OCAlgo(PolicyGradientAlgo):
     """
     opt_info_fields = tuple(f for f in OptInfoOC._fields)  # copy
     def initialize(self, agent, n_itr, batch_spec, mid_batch_reset=False,
-            examples=None, world_size=1, rank=0):
+            examples=None, world_size=1, rank=0, n_episode=0):
         """
         Build the torch optimizer and store other input attributes. Params
         ``batch_spec`` and ``examples`` are unused.
@@ -107,6 +108,7 @@ class OCAlgo(PolicyGradientAlgo):
             self.optimizer.load_state_dict(self.initial_optim_state_dict)
         self.agent = agent
         self.n_itr = n_itr
+        self.n_episode = n_episode
         self.batch_spec = batch_spec
         self.mid_batch_reset = mid_batch_reset
         self.rank = rank
@@ -184,36 +186,3 @@ class OCAlgo(PolicyGradientAlgo):
             termination_advantage[:] = (termination_advantage - adv_mean) / max(adv_std, 1e-6)
 
         return return_, advantage, valid, termination_advantage, valid_o, op_adv
-
-class OCAlgoMultipleOptimizers(OCAlgo):
-    def initialize(self, agent, n_itr, batch_spec, mid_batch_reset=False,
-            examples=None, world_size=1, rank=0):
-        """
-        Build the torch optimizer and store other input attributes. Params
-        ``batch_spec`` and ``examples`` are unused.
-        """
-        params = agent.parameters()
-        common_params = list(params['mu']) + list(params['q'])
-        self.optimizers = []
-        if self.termination_lr == self.learning_rate: common_params += params['beta']
-        else: self.optimizers.append(self.OptimCls(params['beta'], lr=self.termination_lr, **self.optim_kwargs))
-        if self.pi_omega_lr == self.learning_rate: common_params += params['pi_omega_lr']
-        else: self.optimizers.append(self.OptimCls(params['pi_omega_lr'], lr=self.pi_omega_lr, **self.optim_kwargs))
-        if self.agent.model.use_interest:
-            if self.interest_lr == self.learning_rate: common_params += params['interest_lr']
-            else: self.optimizers.append(self.OptimCls(params['interest_lr'], lr=self.interest_lr, **self.optim_kwargs))
-        self.optimizers.append(self.OptimCls(common_params, lr=self.learning_rate, **self.optim_kwargs))
-        # self.optimizer = self.OptimCls(agent.parameters(),
-        #     lr=self.learning_rate, **self.optim_kwargs)
-        # if self.initial_optim_state_dict is not None:
-        #     self.optimizer.load_state_dict(self.initial_optim_state_dict)
-        self.agent = agent
-        self.n_itr = n_itr
-        self.batch_spec = batch_spec
-        self.mid_batch_reset = mid_batch_reset
-        self.rank = rank
-        self.world_size = world_size
-        self.ret_rms = None if self.normalize_rewards is None else \
-            RunningReward(None, *self.rew_clip, self.rew_min_var)
-        # self.ret_rms = None if self.normalize_rewards is None else \
-        #     RunningMeanStdModel((), *self.rew_clip, self.rew_min_var)

@@ -69,8 +69,11 @@ class GymEnvWrapper(Wrapper):
         from gym to rlpyt format (i.e. if dict-to-composite), and converts the
         env_info from dictionary into namedtuple."""
         a = self.action_space.revert(action)
+        if a.size == 1: a = a.item()
         o, r, d, info = self.env.step(a)
         obs = self.observation_space.convert(o)
+        if isinstance(obs, int):
+            obs = np.asarray(obs)
         if self._time_limit:
             if "TimeLimit.truncated" in info:
                 info["timeout"] = info.pop("TimeLimit.truncated")
