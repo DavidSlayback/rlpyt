@@ -33,8 +33,8 @@ from rlpyt.utils.logging.context import logger_context
 
 
 def build_and_train(env_id="FourRooms-v0", run_ID=0, cuda_idx=None, n_parallel=6, fomdp=False):
-    EnvCls = gym_make if fomdp else make_po_fourrooms
-    env_args = dict()
+    EnvCls = make_po_fourrooms
+    env_args = dict(fomdp=fomdp)
     affinity = dict(cuda_idx=cuda_idx, workers_cpus=list(range(n_parallel)), alternating=True)
     lr = 1e-3
 
