@@ -12,7 +12,7 @@ class RlAlgorithm:
     update_counter = 0
 
     def initialize(self, agent, n_itr, batch_spec, mid_batch_reset, examples,
-            world_size=1, rank=0):
+            world_size=1, rank=0, n_episode=0):
         """
         Typically called in the runner during startup.
         
@@ -24,6 +24,7 @@ class RlAlgorithm:
             examples:  Structure of example RL quantities, e.g. observation, action, agent_info, env_info, e.g. in case needed to allocate replay buffer.
             world_size (int): Number of separate optimizing processes (e.g. multi-GPU).
             rank (int): Unique index for each optimizing process.
+            n_episode (int): Override of n_itr. Variable number of calls to optimize_agent. Defaults to 0
         """
         raise NotImplementedError
 

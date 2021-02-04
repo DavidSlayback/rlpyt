@@ -64,8 +64,8 @@ class BSuiteEnv(Env):
         self._action_space = IntBox(low=0, high=self.env.action_spec().num_values)
         o_spec = self.env.observation_spec()
         if isinstance(o_spec, specs.BoundedArray):
-            self._observation_space = FloatBox(low=o_spec.minimum,
-                                               high=o_spec.maximum,
+            self._observation_space = FloatBox(low=o_spec.minimum.item(),
+                                               high=o_spec.maximum.item(),
                                                shape=o_spec.shape,
                                                dtype=o_spec.dtype)
         else:
@@ -108,6 +108,10 @@ class BSuiteEnv(Env):
             return self.viewer.isopen
 
 if __name__ == "__main__":
+    for env in VALID_ENV_SWEEP_IDS:
+        test = BSuiteEnv(env)
+        testo = test.reset()
+        print(test.observation_space.shape)
     test = BSuiteEnv('bandit/0')
     testo = test.reset()
     testa = test.step(test.action_space.sample())

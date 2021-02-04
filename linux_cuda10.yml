@@ -19,6 +19,8 @@ dependencies:
   - ply
   - git+https://github.com/abaisero/one-to-one.git  # Andrea's one-to-one
   - git+https://github.com/abaisero/rl-parsers.git  # Andrea's rl_parsers
+  - jax
+  - jaxlib==0.1.59+cuda110 -f https://storage.googleapis.com/jax-releases/jax_releases.html
   - gym-classics
   - pandas
   - seaborn
