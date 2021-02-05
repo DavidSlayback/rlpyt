@@ -1,8 +1,29 @@
 import torch
 import numpy as np
 
+O_INIT_VALUES = {
+    'base': np.sqrt(2),  # Linear and CNN layers before model heads
+    'lstm': 1.,  #
+    'v': 1.,  # Value init is larger
+    'pi': 1e-2,  # Policy init is much smaller
+    'bias': 0.  # Bias in general is 0
+}
 
-def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
+def apply_init(module: torch.nn.Module,
+               gain: float = O_INIT_VALUES['base'],
+               lstm_gain: float = O_INIT_VALUES['lstm'],
+               bias: float = O_INIT_VALUES['bias']):
+    """Convenience function to do baselines-style orthogonal initialiaztion"""
+    if isinstance(module, (torch.nn.Linear, torch.nn.Conv2d)):
+        torch.nn.init.orthogonal_(module.weight, gain=gain)
+        if module.bias is not None: module.bias.data.fill_(bias)
+    if isinstance(module, (torch.nn.LSTM, torch.nn.GRU)):
+        for n, p in module.named_parameters():
+            if 'bias' in n: torch.nn.init.constant_(p, bias)
+            elif 'weight' in n: torch.nn.init.orthogonal_(p, lstm_gain)
+    return module  # Return module for convenience
+
+def layer_init(layer, std=O_INIT_VALUES['base'], bias_const=O_INIT_VALUES['bias']):
     torch.nn.init.orthogonal_(layer.weight, std)
     torch.nn.init.constant_(layer.bias, bias_const)
     return layer

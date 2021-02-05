@@ -34,13 +34,13 @@ def build_and_train(slot_affinity_code, log_dir, run_ID, config_key):
     t_env = pomdp_interface(**config["env"])
     config["algo"]["discount"] = t_env.discount
 
-    sampler = GpuSampler(
+    sampler = AlternatingSampler(
         EnvCls=pomdp_interface,
         env_kwargs=config["env"],
         **config["sampler"]
     )
     algo = A2C(optim_kwargs=config["optim"], **config["algo"])
-    agent = PomdpRnnAgent(model_kwargs=config["model"], **config["agent"])
+    agent = AlternatingPomdpRnnAgent(model_kwargs=config["model"], **config["agent"])
     runner = MinibatchRl(
         algo=algo,
         agent=agent,

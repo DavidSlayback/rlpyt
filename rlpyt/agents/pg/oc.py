@@ -84,7 +84,7 @@ class RecurrentDiscreteOCAgentBase(BaseAgent):
         dist_info_omega = DistInfo(prob=pi_omega)
         new_o, terminations = self.sample_option(beta, dist_info_omega)  # Sample terminations and options
         # Model handles None, but Buffer does not, make zeros if needed:
-        prev_rnn_state = self.prev_rnn_state or buffer_func(rnn_state, torch.zeros_like)
+        prev_rnn_state = self.prev_rnn_state if self.prev_rnn_state is not None else buffer_func(rnn_state, torch.zeros_like)
         # Transpose the rnn_state from [N,B,H] --> [B,N,H] for storage.
         # (Special case: model should always leave B dimension in.)
         prev_rnn_state = buffer_method(prev_rnn_state, "transpose", 0, 1)
@@ -246,7 +246,7 @@ class RecurrentGaussianOCAgentBase(BaseAgent):
         dist_info_o = DistInfoStd(mean=select_at_indexes(new_o, mu), log_std=select_at_indexes(new_o, log_std))
         action = self.distribution.sample(dist_info_o)
         # Model handles None, but Buffer does not, make zeros if needed:
-        prev_rnn_state = self.prev_rnn_state or buffer_func(rnn_state, torch.zeros_like)
+        prev_rnn_state = self.prev_rnn_state if self.prev_rnn_state is not None else buffer_func(rnn_state, torch.zeros_like)
         # Transpose the rnn_state from [N,B,H] --> [B,N,H] for storage.
         # (Special case: model should always leave B dimension in.)
         prev_rnn_state = buffer_method(prev_rnn_state, "transpose", 0, 1)

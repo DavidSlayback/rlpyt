@@ -77,7 +77,7 @@ class RecurrentCategoricalPgAgentBase(BaseAgent):
         dist_info = DistInfo(prob=pi)
         action = self.distribution.sample(dist_info)
         # Model handles None, but Buffer does not, make zeros if needed:
-        prev_rnn_state = self.prev_rnn_state or buffer_func(rnn_state, torch.zeros_like)
+        prev_rnn_state = self.prev_rnn_state if self.prev_rnn_state is not None else buffer_func(rnn_state, torch.zeros_like)
         # Transpose the rnn_state from [N,B,H] --> [B,N,H] for storage.
         # (Special case: model should always leave B dimension in.)
         prev_rnn_state = buffer_method(prev_rnn_state, "transpose", 0, 1)
