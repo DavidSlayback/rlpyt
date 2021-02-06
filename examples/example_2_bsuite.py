@@ -28,10 +28,11 @@ from rlpyt.algos.pg.a2oc import A2OC
 from rlpyt.agents.pg.bsuite import (BsuiteFfAgent, BsuiteRnnAgent, BsuiteOcFfAgent, AlternatingBsuiteRnnAgent,
                                    AlternatingBsuiteOcRnnAgent, AlternatingBsuiteOcFfAgent, BsuiteOcRnnAgent)
 from rlpyt.runners.minibatch_rl import MinibatchRlEval, MinibatchRl
+from rlpyt.runners.episode_rl import EpisodicRlRunner
 from rlpyt.utils.logging.context import logger_context
 
 
-def build_and_train(env_id="catch/0", run_ID=0, cuda_idx=None, n_parallel=6, fomdp=False):
+def build_and_train(env_id="catch/0", run_ID=0, cuda_idx=None, n_parallel=6):
     EnvCls = BSuiteEnv
     n_episodes = 1e4
     env_args = dict(id=env_id)
@@ -83,15 +84,16 @@ def build_and_train(env_id="catch/0", run_ID=0, cuda_idx=None, n_parallel=6, fom
     # agent = AlternatingBsuiteRnnAgent(model_kwargs=model_kwargs)
     # agent = AlternatingBsuiteRnnAgent(model_kwargs=model_kwargs)
     # agent = AlternatingBsuiteOcRnnAgent(model_kwargs=model_kwargs)
-    runner = MinibatchRl(
+    runner = EpisodicRlRunner(
         algo=algo,
         agent=agent,
         sampler=sampler,
-        n_steps=1e6,
+        n_steps=1e8,
+        n_episodes=1e4,
         log_interval_steps=1e3,
         affinity=affinity,
     )
-    config = dict(env_id=env_id, fomdp=fomdp, algo_name=algo.__class__.__name__, learning_rate=lr)
+    config = dict(env_id=env_id, algo_name=algo.__class__.__name__, learning_rate=lr)
     name = algo.NAME + '_' + env_id
     log_dir = "Bsuites"
     with logger_context(log_dir, run_ID, name, config):
@@ -104,11 +106,9 @@ if __name__ == "__main__":
     parser.add_argument('--env_id', help='environment ID', default='catch/0')
     parser.add_argument('--run_ID', help='run identifier (logging)', type=int, default=0)
     parser.add_argument('--cuda_idx', help='gpu to use ', type=int, default=0)
-    parser.add_argument('--fomdp', help='Set true if fully observable ', type=bool, default=True)
     args = parser.parse_args()
     build_and_train(
         env_id=args.env_id,
         run_ID=args.run_ID,
         cuda_idx=args.cuda_idx,
-        fomdp=args.fomdp
     )

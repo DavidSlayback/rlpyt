@@ -40,6 +40,7 @@ class MinibatchRlBase(BaseRunner):
             agent,
             sampler,
             n_steps,
+            n_episodes=None,
             seed=None,
             affinity=None,
             log_interval_steps=1e5,

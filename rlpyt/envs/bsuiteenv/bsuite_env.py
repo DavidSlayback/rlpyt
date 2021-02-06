@@ -38,19 +38,21 @@ class BSuiteEnv(Env):
         external_logging: Type of bsuite logging to use (str). bsuite has logging methods built into its environments,
             either 'sqlite' or 'csv'. Defaults to 'none' (use rlpyt logging). Only applies to SWEEP IDs
         save_path: Path to save data too (on top of base rlpyt data directory) (str).
+        overrite: Overwrite
     """
     def __init__(self,
                  id: str,
                  exp_kwargs: dict = None,
                  external_logging: str = 'none',
-                 save_path: str = '',):
+                 save_path: str = '',
+                 overwrite: bool = True):
         assert (id in VALID_ENV_SWEEP_IDS) or (id in VALID_ENV_IDS and exp_kwargs is not None)  # Either using one of presets or using base experiment with other settings
         aug_path = osp.join(LOG_DIR, save_path)  # LOG_DIR + save_path
         if id in VALID_ENV_SWEEP_IDS: # Pre-parameterized experiments
             if external_logging == 'none':
                 env = bsuite.load_from_id(id)  # No recording
             else:
-                env = bsuite.load_and_record(id, aug_path, external_logging)  # Record in sql or csv. same sql for each id
+                env = bsuite.load_and_record(id, aug_path, external_logging, overwrite=overwrite)  # Record in sql or csv. same sql for each id
             self.num_episodes = env.bsuite_num_episodes
         else:
             noise_scale = exp_kwargs.pop('noise_scale', 0.)
