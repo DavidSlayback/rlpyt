@@ -9,11 +9,20 @@ from torch.jit import script as tscr
 import numpy as np
 from typing import Tuple, List
 from rlpyt.utils.tensor import infer_leading_dims, restore_leading_dims
+import haste_pytorch as haste
 
 from rlpyt.utils.collections import namedarraytuple, namedtuple
 RnnState = namedarraytuple("RnnState", ["h", "c"])  # For downstream namedarraytuples to work
 DualRnnState = namedarraytuple("DualRnnState", ["pi", "v"])
 # GruState = namedarraytuple("GruState", ["h"])
+
+def get_rnn_class(rnn_type: str, layer_norm: bool):
+    if rnn_type == 'gru':
+        if layer_norm: return haste.LayerNormGRU
+        else: return nn.GRU
+    else:
+        if layer_norm: return haste.LayerNormLSTM
+        else: return nn.LSTM
 
 class ScriptedRNN(nn.Module):
     """ Workaround from PyTorch issue #32976 for scripting RNNs
@@ -79,12 +88,13 @@ class POMDPRnnShared0Rnn(nn.Module):
                  rnn_size: int = 256,
                  hidden_sizes: [List, Tuple] = None,
                  baselines_init: bool = True,
+                 layer_norm: bool = False
                  ):
         super().__init__()
         self._obs_dim = 0
         self.rnn_is_lstm = rnn_type != 'gru'
         self.preprocessor = tscr(OneHotLayer(input_classes))
-        rnn_class = nn.GRU if rnn_type == 'gru' else nn.LSTM
+        rnn_class = get_rnn_class(rnn_type, layer_norm)
         self.rnn = rnn_class(input_classes + output_size + 1, rnn_size)  # Concat action, reward
         self.body = MlpModel(rnn_size, hidden_sizes, None, nn.ReLU, None)
         self.pi = nn.Sequential(nn.Linear(self.body.output_size, output_size), nn.Softmax(-1))
@@ -120,12 +130,13 @@ class POMDPRnnShared1Rnn(nn.Module):
                  rnn_size: int = 256,
                  hidden_sizes: [List, Tuple] = None,
                  baselines_init: bool = True,
+                 layer_norm: bool = False
                  ):
         super().__init__()
         self._obs_dim = 0
         self.rnn_is_lstm = rnn_type != 'gru'
         self.preprocessor = tscr(OneHotLayer(input_classes))
-        rnn_class = nn.GRU if rnn_type == 'gru' else nn.LSTM
+        rnn_class = get_rnn_class(rnn_type, layer_norm)
         self.body = MlpModel(input_classes, hidden_sizes, None, nn.ReLU, None)
         self.rnn = rnn_class(self.body.output_size + output_size + 1, rnn_size)  # Concat action, reward
         self.pi = nn.Sequential(nn.ReLU(), nn.Linear(rnn_size, output_size), nn.Softmax(-1))
@@ -161,12 +172,13 @@ class POMDPRnnUnshared0Rnn(nn.Module):
                  rnn_size: int = 256,
                  hidden_sizes: [List, Tuple] = None,
                  baselines_init: bool = True,
+                 layer_norm: bool = False
                  ):
         super().__init__()
         self._obs_dim = 0
         self.rnn_is_lstm = rnn_type != 'gru'
         self.preprocessor = tscr(OneHotLayer(input_classes))
-        rnn_class = nn.GRU if rnn_type == 'gru' else nn.LSTM
+        rnn_class = get_rnn_class(rnn_type, layer_norm)
         self.rnn = rnn_class(input_classes + output_size + 1, rnn_size)  # Concat action, reward
         pi_inits = (O_INIT_VALUES['base'], O_INIT_VALUES['pi']) if baselines_init else None
         v_inits = (O_INIT_VALUES['base'], O_INIT_VALUES['v']) if baselines_init else None
@@ -204,12 +216,13 @@ class POMDPRnnUnshared1Rnn(nn.Module):
                  rnn_size: int = 256,
                  hidden_sizes: [List, Tuple] = None,
                  baselines_init: bool = True,
+                 layer_norm: bool = False
                  ):
         super().__init__()
         self._obs_dim = 0
         self.rnn_is_lstm = rnn_type != 'gru'
         self.preprocessor = tscr(OneHotLayer(input_classes))
-        rnn_class = nn.GRU if rnn_type == 'gru' else nn.LSTM
+        rnn_class = get_rnn_class(rnn_type, layer_norm)
         self.body_pi = MlpModel(input_classes, hidden_sizes, None, nn.ReLU, None)
         self.body_v = MlpModel(input_classes, hidden_sizes, None, nn.ReLU, None)
         self.rnn_pi = rnn_class(self.body_pi.output_size + output_size + 1, rnn_size)  # Concat action, reward
@@ -288,13 +301,14 @@ class POMDPRnnModel(nn.Module):
                  inits: [(float, float, float), None] = (np.sqrt(2), 1., 0.01),
                  nonlinearity: nn.Module = nn.ReLU,
                  shared_processor: bool = False,
-                 rnn_placement: int = 1
+                 rnn_placement: int = 1,
+                 layer_norm: bool = False
                  ):
         super().__init__()
-        if shared_processor and rnn_placement == 0: self.model = POMDPRnnShared0Rnn(input_classes, output_size, rnn_type, rnn_size, hidden_sizes, inits is not None)
-        elif shared_processor and rnn_placement == 1: self.model = POMDPRnnShared1Rnn(input_classes, output_size, rnn_type, rnn_size, hidden_sizes, inits is not None)
-        elif not shared_processor and rnn_placement == 0: self.model = POMDPRnnUnshared0Rnn(input_classes, output_size, rnn_type, rnn_size, hidden_sizes, inits is not None)
-        elif not shared_processor and rnn_placement == 1: self.model = POMDPRnnUnshared1Rnn(input_classes, output_size, rnn_type, rnn_size, hidden_sizes, inits is not None)
+        if shared_processor and rnn_placement == 0: self.model = POMDPRnnShared0Rnn(input_classes, output_size, rnn_type, rnn_size, hidden_sizes, inits is not None, layer_norm)
+        elif shared_processor and rnn_placement == 1: self.model = POMDPRnnShared1Rnn(input_classes, output_size, rnn_type, rnn_size, hidden_sizes, inits is not None, layer_norm)
+        elif not shared_processor and rnn_placement == 0: self.model = POMDPRnnUnshared0Rnn(input_classes, output_size, rnn_type, rnn_size, hidden_sizes, inits is not None, layer_norm)
+        elif not shared_processor and rnn_placement == 1: self.model = POMDPRnnUnshared1Rnn(input_classes, output_size, rnn_type, rnn_size, hidden_sizes, inits is not None, layer_norm)
 
     def forward(self, observation, prev_action, prev_reward, init_rnn_state):
         return self.model(observation, prev_action, prev_reward, init_rnn_state)
