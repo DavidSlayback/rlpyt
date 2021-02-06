@@ -170,13 +170,57 @@ def plot_all_merge_dirs_under_directory(directory):
         ax.figure.savefig(title+'.png')
         plt.cla()
 
+def add_algo_names_under_directory(directory):
+    merged_dirs = [d[0] for d in os.walk(directory) if d[0].endswith(MERGE_KEY)]
+    dfs = []
+    jsons = []
+    for d in merged_dirs:
+        dfs.append(pd.read_csv(osp.join(d, PROG)))
+        jsons.append(json.load(open(osp.join(d, PARAMS),'r')))
+    print(3)
+
+
+def plot_all_merge_dirs_under_directory_other(directory):
+    import matplotlib.pyplot as plt
+    merged_dirs = [d[0] for d in os.walk(directory) if d[0].endswith(MERGE_KEY)]
+    dfs = []
+    jsons = []
+    for d in merged_dirs:
+        dfs.append(pd.read_csv(osp.join(d, PROG)))
+        jsons.append(json.load(open(osp.join(d, PARAMS),'r')))
+    eval_key = 'DiscountedReturn'
+    eval_key_avg = eval_key + 'Average'
+    eval_key_std = eval_key + 'Std'
+    eval_x = 'Diagnostics/Iteration'
+    algo_names = [j['algo_name'] + '_Int' if 'use_interest' in j['model'].keys() and j['model']['use_interest'] else j['algo_name'] for j in jsons]
+    unique_algo_names = list(set(algo_names))
+    env_name_observability = [(j['env']['id'], j['env']['fomdp']) for j in jsons]
+    unique_env_name_observability = list(set(env_name_observability))
+    unique_env_name_observability_indices = [[i for i, x in enumerate(env_name_observability) if x == e] for e in unique_env_name_observability]
+    # Separate plot for each env-observability pairing
+    for i, e in enumerate(unique_env_name_observability):
+        e_dfs = [df for j, df in enumerate(dfs) if j in unique_env_name_observability_indices[i]]
+        e_algo_names = [a for j, a in enumerate(algo_names) if j in unique_env_name_observability_indices[i]]
+        concatenated = pd.concat([df.assign(algo_name=e_algo_names[j]) for j, df in enumerate(e_dfs)])
+        ax = sns.lineplot(x=eval_x, y=eval_key_avg, hue='algo_name', data=concatenated, legend='auto', estimator=None)
+        title = e[0] if not e[1] else 'MDP' + e[0][5:]
+        ax.set_title(title)
+        # for j, df in enumerate(e_dfs):
+        #     color = colors[j]
+        #     ax.fill_between(
+        #         df[eval_x], y1=df[eval_key_avg] - df[eval_key_std], y2=df[eval_key_avg] + df[eval_key_std], alpha=0.5, color=color
+        #     )
+        ax.figure.savefig(title+'.png')
+        plt.cla()
+
 
 
 
 if __name__ == "__main__":
-    d1 = '/home/david/Documents/GitHub/rlpyt/data/local/Episodic_POMDPs'
+    d1 = '/home/david/Documents/GitHub/rlpyt/data/local/Procgen'
     # merge_files_under_directory(d1)
-    plot_all_merge_dirs_under_directory(d1)
+    add_algo_names_under_directory(d1)
+    # plot_all_merge_dirs_under_directory(d1)
     example = '/home/david/Documents/GitHub/rlpyt/data/local/20210119/202536/PPOC_Isaac/Ant/run_0/'
     # all_dirs = [d for d in os.walk(parent_directory)]
     # direct_parent_directory = '/home/david/Documents/GitHub/rlpyt/data/local/20210119/202536/PPOC_Isaac/Ant'

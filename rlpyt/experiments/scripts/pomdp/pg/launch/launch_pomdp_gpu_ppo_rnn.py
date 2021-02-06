@@ -19,10 +19,7 @@ affinity_code = encode_affinity(
 
 runs_per_setting = 6  # 3 runs
 # Paths
-path_a2c = (pathlib.Path(__file__).resolve().parent.parent / 'train' / "pomdp_ff_a2c_gpu.py").as_posix()
-path_a2oc = (pathlib.Path(__file__).resolve().parent.parent / 'train' / "pomdp_ff_a2oc_gpu.py").as_posix()
-path_a2c_rnn = (pathlib.Path(__file__).resolve().parent.parent / 'train' / "pomdp_rnn_a2c_gpu.py").as_posix()
-path_a2oc_rnn = (pathlib.Path(__file__).resolve().parent.parent / 'train' / "pomdp_rnn_a2oc_gpu.py").as_posix()
+path_ppo_rnn = (pathlib.Path(__file__).resolve().parent.parent / 'train' / "pomdp_rnn_ppo_gpu.py").as_posix()
 # Default keys
 default_key = 'hallway_5e5'
 oc_key = 'hallway_5e5_oc'
@@ -37,8 +34,6 @@ RNN_PLACE = list(zip([0, 1]))
 rnn_place_key = [("model", "rnn_placement")]
 SHARED_PROC = list(zip([False, True]))
 shared_proc_key = [("model", "shared_processor")]
-LAYER_NORM = list(zip([False, True]))
-layer_norm_key = [("model", "layer_norm")]
 lrs = list(zip([1e-3, 3e-3, 1e-2]))
 lr_key = [("algo", "learning_rate")]
 
@@ -78,11 +73,10 @@ variant_levels.append(VariantLevel(envs_plus_step_key, ENVS_PLUS_STEPS, env_name
 # variant_levels.append(VariantLevel(shared_proc_key, SHARED_PROC, shared_proc_names))  # Sizes of recurrency
 # variant_levels.append(VariantLevel(rnn_place_key, RNN_PLACE, rnn_place_names))  # Sizes of recurrency
 # variant_levels.append(VariantLevel(rnn_size_key, RNN_SIZE, rnn_size_names))  # Sizes of recurrency
-variant_levels.append(VariantLevel(layer_norm_key, LAYER_NORM, ['rnn_norm', 'no_norm']))  # Sizes of recurrency
-# variant_levels.append(VariantLevel(lr_key, lrs, [str(*v) for v in lrs]))  # Learning rates
+variant_levels.append(VariantLevel(lr_key, lrs, [str(v) for v in lrs]))  # Learning rates
 variants, log_dirs = make_variants(*variant_levels)
 run_experiments(
-    script=path_a2c_rnn,
+    script=path_ppo_rnn,
     affinity_code=affinity_code,
     experiment_title=experiment_title,
     runs_per_setting=runs_per_setting,

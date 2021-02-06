@@ -299,7 +299,6 @@ class POMDPRnnModel(nn.Module):
                  rnn_type: str = 'gru',
                  rnn_size: int = 128,
                  inits: [(float, float, float), None] = (np.sqrt(2), 1., 0.01),
-                 nonlinearity: nn.Module = nn.ReLU,
                  shared_processor: bool = False,
                  rnn_placement: int = 1,
                  layer_norm: bool = False

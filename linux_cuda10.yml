@@ -25,3 +25,4 @@ dependencies:
   - pandas
   - seaborn
   - pyglet==1.5.14
+  - haste_pytorch

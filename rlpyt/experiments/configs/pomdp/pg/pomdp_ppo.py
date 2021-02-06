@@ -22,7 +22,10 @@ config = dict(
         clip_grad_norm=2.,
         entropy_loss_coeff=0.01,
         value_loss_coeff=1.,
-        normalize_advantage=True
+        normalize_advantage=True,
+        gae_lambda=0.95,
+        ratio_clip=0.2,
+        linear_lr_schedule=True
     ),
     env=dict(**base_env_args),
     model=dict(
