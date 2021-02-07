@@ -10,7 +10,7 @@ base_sampler_args = dict(batch_T=batch_T, batch_B=batch_B, max_decorrelation_ste
 base_runner_args = dict(n_steps=nsteps, log_interval_steps=1e3, seed=None)
 base_env_args = dict(fomdp=False, id='POMDP-hallway-continuing-v0', time_limit=100)  # Partially-observable, time_limit as in cassandra's thesis
 base_oc_args = dict(option_size=4, use_interest=False, use_diversity=False, use_attention=False)  # OC model args
-base_rnn_args = dict(rnn_type='gru', rnn_size=256, rnn_placement=1, shared_processor=True, layer_norm=False)  # Base rnn args, best I've seen
+base_rnn_args = dict(rnn_type='gru', rnn_size=256, rnn_placement=1, shared_processor=True, layer_norm=True)  # Base rnn args, best I've seen
 
 
 configs = dict()

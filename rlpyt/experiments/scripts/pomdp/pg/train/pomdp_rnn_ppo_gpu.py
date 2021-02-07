@@ -23,14 +23,14 @@ from rlpyt.runners.minibatch_rl import MinibatchRlEval, MinibatchRl
 from rlpyt.utils.logging.context import logger_context
 from rlpyt.utils.launching.variant import load_variant, update_config
 
-from rlpyt.experiments.configs.pomdp.pg.pomdp_a2c import configs
+from rlpyt.experiments.configs.pomdp.pg.pomdp_ppo import configs
 
 def build_and_train(slot_affinity_code, log_dir, run_ID, config_key):
     affinity = affinity_from_code(slot_affinity_code)
     config = configs[config_key]
     variant = load_variant(log_dir)
     config = update_config(config, variant)
-    config["algo_name"] = 'A2C_RNN'
+    config["algo_name"] = 'PPO_RNN'
     t_env = pomdp_interface(**config["env"])
     config["algo"]["discount"] = t_env.discount
 

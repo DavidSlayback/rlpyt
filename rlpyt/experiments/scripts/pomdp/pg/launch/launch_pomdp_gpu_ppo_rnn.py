@@ -36,6 +36,8 @@ SHARED_PROC = list(zip([False, True]))
 shared_proc_key = [("model", "shared_processor")]
 lrs = list(zip([1e-3, 3e-3, 1e-2]))
 lr_key = [("algo", "learning_rate")]
+lr_schedules = list(zip([False, True]))
+lr_schedules_key = [("algo", "linear_lr_schedule")]
 
 ENVS = list(zip(['POMDP-hallway-episodic-v0', 'POMDP-hallway2-episodic-v0']))# 'POMDP-rock_sample_5_6-continuing-v0']))  # Subselect
 
@@ -63,7 +65,7 @@ rnn_place_names = ["{}".format(v) for v in ['Before', 'After']]
 shared_proc_names = ["{}".format(v) for v in ['Unshared', 'Shared']]
 
 # A2C RNN
-experiment_title = "A2CRnn_Pomdp"
+experiment_title = "PPORnn_Pomdp"
 variant_levels = list()
 # variant_levels.append(VariantLevel(B_T_env_key, ENVS_PLUS_B_T, env_names))  # pomdps
 variant_levels.append(VariantLevel(envs_plus_step_key, ENVS_PLUS_STEPS, env_names))  # pomdps
@@ -73,7 +75,8 @@ variant_levels.append(VariantLevel(envs_plus_step_key, ENVS_PLUS_STEPS, env_name
 # variant_levels.append(VariantLevel(shared_proc_key, SHARED_PROC, shared_proc_names))  # Sizes of recurrency
 # variant_levels.append(VariantLevel(rnn_place_key, RNN_PLACE, rnn_place_names))  # Sizes of recurrency
 # variant_levels.append(VariantLevel(rnn_size_key, RNN_SIZE, rnn_size_names))  # Sizes of recurrency
-variant_levels.append(VariantLevel(lr_key, lrs, [str(v) for v in lrs]))  # Learning rates
+# variant_levels.append(VariantLevel(lr_key, lrs, [str(*v) for v in lrs]))  # Learning rates
+variant_levels.append(VariantLevel(lr_schedules_key, lr_schedules, ['Constant', 'Linear']))  # Learning rate schedules
 variants, log_dirs = make_variants(*variant_levels)
 run_experiments(
     script=path_ppo_rnn,
