@@ -125,7 +125,7 @@ class DecorrelatingStartCollector(BaseCollector):
                     if getattr(info, "traj_done", d):
                         o = env.reset()
                         traj_infos[b] = self.TrajInfoCls()
-                    if d:
+                    if getattr(info, "episode_done", d):
                         a = env.action_space.null_value()
                         r = 0
                 observation[b] = o

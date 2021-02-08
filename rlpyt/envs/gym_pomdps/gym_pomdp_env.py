@@ -7,7 +7,7 @@ from rlpyt.spaces.int_box import IntBox
 from collections import namedtuple
 
 env_list = gym_pomdps.env_list
-EnvInfo = namedtuple("EnvInfo", ["reward_cat", "state"])
+EnvInfo = namedtuple("EnvInfo", ["reward_cat", "state", "episode_done"])
 
 # Compiled optimal discounted returns for some of the POMDPs (optimal given observation).
 # Primarily from Anthony Cassandra's thesis, using discount factors from .pomdp files
@@ -49,9 +49,19 @@ def pomdp_interface(fomdp=False, **kwargs):
     return FOMDPEnv(**kwargs) if fomdp else POMDPEnv(**kwargs)
 
 class POMDPEnv(Env):
-    def __init__(self, id, time_limit=None):
+    """ Partially observable environment wrapped to fit rlpyt
+
+    Args:
+        id (str): Gym id of gym_pomdp environment (must be a valid id, which is determined by .pomdp files in local installation of gym-pomdps)
+        time_limit (int): Maximum number of timesteps before episode termination. Defaults to None (no timelimit)
+        report_episode_done (bool): If environment is not episodic, external agents may still want to reset state at the boundary.
+            Setting this to true will provide this information in the info returned.
+    """
+    def __init__(self, id: str, time_limit: int = None, report_episode_done: bool = False):
         assert id in env_list
         self.episodic = id.split('-')[2] == 'episodic'
+        self.report_episode_done = report_episode_done
+        if not self.episodic and report_episode_done: id = id.replace('continuing', 'episodic')  # Even in continuing setting, use episodic env
         self.env = gym.make(id)
         self.discount = self.env.discount
         self._action_space = IntBox(low=0, high=self.env.action_space.n)
@@ -62,10 +72,17 @@ class POMDPEnv(Env):
         self.time_elapsed = 0
 
     def step(self, action):
+        episode_done = False
         o, r, d, info = self.env.step(action)
+        # s = self.state  # Record state before potential reset
+        if d and not self.episodic and self.report_episode_done:
+            d = False
+            episode_done = True  # Tell agent to reset state
+            self.env.reset()  # Our underlying env is episodic, need to reset
+        s = self.state
         self.time_elapsed += 1
         if self.time_limit is not None: d = self.time_elapsed >= self.time_limit or d
-        return EnvStep(np.array(o), r, d, EnvInfo(**info, state=self.state))
+        return EnvStep(np.array(o), r, d, EnvInfo(**info, state=s, episode_done=episode_done))
 
     def reset(self):
         self.env.reset()  # Reset state
@@ -80,9 +97,19 @@ class POMDPEnv(Env):
         return self.env.state
 
 class FOMDPEnv(Env):
-    def __init__(self, id, time_limit=None):
+    """ Fully observable environment wrapped to fit rlpyt
+
+    Args:
+        id (str): Gym id of gym_pomdp environment (must be a valid id, which is determined by .pomdp files in local installation of gym-pomdps)
+        time_limit (int): Maximum number of timesteps before episode termination. Defaults to None (no timelimit)
+        report_episode_done (bool): If environment is not episodic, external agents may still want to reset state at the boundary.
+            Setting this to true will provide this information in the info returned.
+    """
+    def __init__(self, id: str, time_limit: int = None, report_episode_done: bool = False):
         assert id in env_list
         self.episodic = id.split('-')[2] == 'episodic'
+        self.report_episode_done = report_episode_done
+        if not self.episodic and report_episode_done: id = id.replace('continuing', 'episodic')  # Even in continuing setting, use episodic env
         self.env = gym.make(id)
         self.discount = self.env.discount
         self._action_space = IntBox(low=0, high=self.env.action_space.n)
@@ -93,10 +120,16 @@ class FOMDPEnv(Env):
         self.time_elapsed = 0
 
     def step(self, action):
+        episode_done = False
         o, r, d, info = self.env.step(action)
+        if d and not self.episodic and self.report_episode_done:
+            d = False
+            episode_done = True  # Tell agent to reset state
+            self.env.reset()  # Our underlying env is episodic, need to reset
         self.time_elapsed += 1
+        s = self.state
         if self.time_limit is not None: d = self.time_elapsed >= self.time_limit or d
-        return EnvStep(np.array(self.state), r, d, EnvInfo(**info, state=self.state))
+        return EnvStep(np.array(s), r, d, EnvInfo(**info, state=s, episode_done=episode_done))
 
     def reset(self):
         self.env.reset()  # Reset state

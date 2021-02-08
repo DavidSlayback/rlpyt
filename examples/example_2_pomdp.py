@@ -33,7 +33,7 @@ from rlpyt.utils.logging.context import logger_context
 
 def build_and_train(env_id="POMDP-hallway-episodic-v0", run_ID=0, cuda_idx=None, n_parallel=6, fomdp=False):
     EnvCls = pomdp_interface
-    env_args = dict(fomdp=fomdp, id=env_id, time_limit=100)
+    env_args = dict(fomdp=fomdp, id=env_id, time_limit=100, report_episode_done=True)
     test_instance = EnvCls(**env_args)
     gamma = test_instance.discount
     affinity = dict(cuda_idx=cuda_idx, workers_cpus=list(range(n_parallel)), alternating=True)
@@ -42,13 +42,24 @@ def build_and_train(env_id="POMDP-hallway-episodic-v0", run_ID=0, cuda_idx=None,
     # Model kwargs
     # model_kwargs = dict()
     # model_kwargs = dict(hidden_sizes=[64, 64], shared_processor=False)
-    model_kwargs = dict(hidden_sizes=[64, 64], rnn_type='gru', rnn_size=256, rnn_placement=1, shared_processor=False, layer_norm=True)
+    model_kwargs = dict(hidden_sizes=[64, 64], rnn_type='gru', rnn_size=256, rnn_placement=1, shared_processor=True, layer_norm=True)
     # model_kwargs = dict(hidden_sizes=[64, 64], option_size=4, use_interest=False, use_diversity=False, use_attention=False)
     # model_kwargs = dict(hidden_sizes=[64, 64], option_size=4, use_interest=False, use_diversity=False,
     #                     use_attention=False, rnn_type='gru', rnn_size=128)
 
     # Samplers
-    # sampler = AlternatingSampler(
+    sampler = AlternatingSampler(
+        EnvCls=EnvCls,
+        env_kwargs=env_args,
+        eval_env_kwargs=env_args,
+        batch_T=20,  # One time-step per sampler iteration.
+        batch_B=30,  # One environment (i.e. sampler Batch dimension).
+        max_decorrelation_steps=0,
+        eval_n_envs=5,
+        eval_max_steps=int(25e3),
+        eval_max_trajectories=30
+    )
+    # sampler = GpuSampler(
     #     EnvCls=EnvCls,
     #     env_kwargs=env_args,
     #     eval_env_kwargs=env_args,
@@ -60,17 +71,17 @@ def build_and_train(env_id="POMDP-hallway-episodic-v0", run_ID=0, cuda_idx=None,
     #     eval_max_trajectories=30
     # )
     #
-    sampler = SerialSampler(
-        EnvCls=EnvCls,
-        env_kwargs=env_args,
-        eval_env_kwargs=env_args,
-        batch_T=20,  # One time-step per sampler iteration.
-        batch_B=30,  # One environment (i.e. sampler Batch dimension).
-        max_decorrelation_steps=0,
-        # eval_n_envs=2,
-        # eval_max_steps=int(51e2),
-        # eval_max_trajectories=5,
-    )
+    # sampler = SerialSampler(
+    #     EnvCls=EnvCls,
+    #     env_kwargs=env_args,
+    #     eval_env_kwargs=env_args,
+    #     batch_T=20,  # One time-step per sampler iteration.
+    #     batch_B=30,  # One environment (i.e. sampler Batch dimension).
+    #     max_decorrelation_steps=0,
+    #     # eval_n_envs=2,
+    #     # eval_max_steps=int(51e2),
+    #     # eval_max_trajectories=5,
+    # )
 
     # Algos (swapping out discount)
     algo = A2C(discount=gamma, learning_rate=lr, clip_grad_norm=2.)
@@ -78,10 +89,10 @@ def build_and_train(env_id="POMDP-hallway-episodic-v0", run_ID=0, cuda_idx=None,
 
     # Agents
     # agent = PomdpFfAgent(model_kwargs=model_kwargs)
-    agent = PomdpRnnAgent(model_kwargs=model_kwargs)
+    # agent = PomdpRnnAgent(model_kwargs=model_kwargs)
     # agent = PomdpOcFfAgent(model_kwargs=model_kwargs)
     # agent = PomdpOcRnnAgent(model_kwargs=model_kwargs)
-    # agent = AlternatingPomdpRnnAgent(model_kwargs=model_kwargs)
+    agent = AlternatingPomdpRnnAgent(model_kwargs=model_kwargs)
     # agent = AlternatingPomdpRnnAgent(model_kwargs=model_kwargs)
     # agent = AlternatingPomdpOcRnnAgent(model_kwargs=model_kwargs)
     runner = MinibatchRl(
@@ -102,10 +113,10 @@ def build_and_train(env_id="POMDP-hallway-episodic-v0", run_ID=0, cuda_idx=None,
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--env_id', help='environment ID', default='POMDP-hallway-episodic-v0')
+    parser.add_argument('--env_id', help='environment ID', default='POMDP-hallway-continuing-v0')
     parser.add_argument('--run_ID', help='run identifier (logging)', type=int, default=0)
     parser.add_argument('--cuda_idx', help='gpu to use ', type=int, default=0)
-    parser.add_argument('--fomdp', help='Set true if fully observable ', type=bool, default=True)
+    parser.add_argument('--fomdp', help='Set true if fully observable ', type=bool, default=False)
     args = parser.parse_args()
     build_and_train(
         env_id=args.env_id,

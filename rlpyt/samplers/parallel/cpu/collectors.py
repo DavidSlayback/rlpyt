@@ -46,7 +46,7 @@ class CpuResetCollector(DecorrelatingStartCollector):
                     completed_infos.append(traj_infos[b].terminate(o))
                     traj_infos[b] = self.TrajInfoCls()
                     o = env.reset()
-                if d:
+                if getattr(env_info, "episode_done", d):
                     self.agent.reset_one(idx=b)
                 observation[b] = o
                 reward[b] = r
@@ -187,7 +187,7 @@ class CpuEvalCollector(BaseEvalCollector):
                     self.traj_infos_queue.put(traj_infos[b].terminate(o))
                     traj_infos[b] = self.TrajInfoCls()
                     o = env.reset()
-                if d:
+                if getattr(env_info, "episode_done", d):
                     action[b] = 0  # Next prev_action.
                     r = 0
                     self.agent.reset_one(idx=b)

@@ -46,8 +46,11 @@ class ActionServer:
             for b in obs_ready:
                 b.acquire()  # Workers written obs and rew, first prev_act.
                 # assert not b.acquire(block=False)  # Debug check.
-            if self.mid_batch_reset and np.any(step_np.done):
-                for b_reset in np.where(step_np.done)[0]:
+            if hasattr(self.samples_np.env.env_info, 'episode_done'):
+                ep_done = self.samples_np.env.env_info.episode_done[t]  # Latest episode done information
+            else: ep_done = step_np.done
+            if self.mid_batch_reset and (np.any(step_np.done) or np.any(ep_done)):
+                for b_reset in np.where(np.logical_or(step_np.done, ep_done))[0]:  # Where done OR where episode ends
                     step_np.action[b_reset] = 0  # Null prev_action into agent.
                     step_np.reward[b_reset] = 0  # Null prev_reward into agent.
                     self.agent.reset_one(idx=b_reset)
@@ -141,8 +144,12 @@ class AlternatingActionServer:
                 for b in obs_ready_pair[alt]:
                     b.acquire()  # Workers written obs and rew, first prev_act.
                     # assert not b.acquire(block=False)  # Debug check.
-                if self.mid_batch_reset and np.any(step_h.done):
-                    for b_reset in np.where(step_h.done)[0]:
+                if hasattr(self.samples_np.env.env_info, 'episode_done'):
+                    ep_done = self.samples_np.env.env_info.episode_done[t][alt:alt+self.half_B]  # Latest episode done information
+                else:
+                    ep_done = step_h.done
+                if self.mid_batch_reset and (np.any(step_h.done) or np.any(ep_done)):
+                    for b_reset in np.where(np.logical_or(step_h.done, ep_done))[0]:
                         step_h.action[b_reset] = 0  # Null prev_action into agent.
                         step_h.reward[b_reset] = 0  # Null prev_reward into agent.
                         self.agent.reset_one(idx=b_reset)
