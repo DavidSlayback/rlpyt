@@ -1,6 +1,7 @@
 from rlpyt.models.discrete import OneHotLayer
 from rlpyt.models.mlp import MlpModel
 from rlpyt.models.oc import OptionCriticHead_IndependentPreprocessor, OptionCriticHead_SharedPreprocessor, View
+from rlpyt.models.utils import get_rnn_class, O_INIT_VALUES, apply_init
 from functools import partial
 import torch
 import torch.nn as nn
@@ -11,7 +12,7 @@ from rlpyt.utils.tensor import infer_leading_dims, restore_leading_dims
 
 from rlpyt.utils.collections import namedarraytuple
 RnnState = namedarraytuple("RnnState", ["h", "c"])  # For downstream namedarraytuples to work
-GruState = namedarraytuple("GruState", ["h"])
+DualRnnState = namedarraytuple("DualRnnState", ["pi", "v"])
 class BsuiteFfModel(nn.Module):
     """ Basic feedforward actor-critic model for bsuite space
 
@@ -45,6 +46,184 @@ class BsuiteFfModel(nn.Module):
         pi, v = restore_leading_dims((pi, v), lead_dim, T, B)
         return pi, v
 
+class BsuiteRnnShared0Rnn(nn.Module):
+    def __init__(self,
+                 input_shape: Tuple,
+                 output_size: int,
+                 rnn_type: str = 'gru',
+                 rnn_size: int = 256,
+                 hidden_sizes: [List, Tuple] = None,
+                 baselines_init: bool = True,
+                 layer_norm: bool = False
+                 ):
+        super().__init__()
+        self._obs_dim = 2
+        self.rnn_is_lstm = rnn_type != 'gru'
+        input_size = int(np.prod(input_shape))
+        rnn_class = get_rnn_class(rnn_type, layer_norm)
+        self.rnn = rnn_class(input_size + output_size + 1, rnn_size)  # Concat action, reward
+        self.body = MlpModel(rnn_size, hidden_sizes, None, nn.ReLU, None)
+        self.pi = nn.Sequential(nn.Linear(self.body.output_size, output_size), nn.Softmax(-1))
+        self.v = nn.Linear(self.body.output_size, 1)
+        if baselines_init:
+            self.rnn.apply(apply_init); self.body.apply(apply_init)
+            self.pi.apply(partial(apply_init, gain=O_INIT_VALUES['pi']))
+            self.v.apply(partial(apply_init, gain=O_INIT_VALUES['v']))
+        self.body, self.pi, self.v = tscr(self.body), tscr(self.pi), tscr(self.v)
+
+    def forward(self, observation, prev_action, prev_reward, init_rnn_state):
+        lead_dim, T, B, _ = infer_leading_dims(observation, self._obs_dim)
+        if init_rnn_state is not None and self.rnn_is_lstm: init_rnn_state = tuple(init_rnn_state)  # namedarraytuple -> tuple (h, c)
+        rnn_input = torch.cat([
+            observation.view(T,B,-1),
+            prev_action.view(T, B, -1),  # Assumed onehot.
+            prev_reward.view(T, B, 1),
+            ], dim=2)
+        rnn_out, next_rnn_state = self.rnn(rnn_input, init_rnn_state)
+        rnn_out = rnn_out.view(T*B, -1)
+        rnn_out = self.body(rnn_out)
+        pi, v = self.pi(rnn_out), self.v(rnn_out).squeeze(-1)
+        pi, v = restore_leading_dims((pi, v), lead_dim, T, B)
+        if self.rnn_is_lstm: next_rnn_state = RnnState(next_rnn_state)
+        return pi, v, next_rnn_state
+
+class BsuiteRnnShared1Rnn(nn.Module):
+    def __init__(self,
+                 input_shape: Tuple,
+                 output_size: int,
+                 rnn_type: str = 'gru',
+                 rnn_size: int = 256,
+                 hidden_sizes: [List, Tuple] = None,
+                 baselines_init: bool = True,
+                 layer_norm: bool = False
+                 ):
+        super().__init__()
+        self._obs_dim = 2
+        self.rnn_is_lstm = rnn_type != 'gru'
+        input_size = int(np.prod(input_shape))
+        rnn_class = get_rnn_class(rnn_type, layer_norm)
+        self.body = MlpModel(input_size, hidden_sizes, None, nn.ReLU, None)
+        self.rnn = rnn_class(self.body.output_size + output_size + 1, rnn_size)  # Concat action, reward
+        self.pi = nn.Sequential(nn.ReLU(), nn.Linear(rnn_size, output_size), nn.Softmax(-1))
+        self.v = nn.Sequential(nn.ReLU(), nn.Linear(rnn_size, 1))
+        if baselines_init:
+            self.rnn.apply(apply_init); self.body.apply(apply_init)
+            self.pi.apply(partial(apply_init, gain=O_INIT_VALUES['pi']))
+            self.v.apply(partial(apply_init, gain=O_INIT_VALUES['v']))
+        self.body, self.pi, self.v = tscr(self.body), tscr(self.pi), tscr(self.v)
+
+    def forward(self, observation, prev_action, prev_reward, init_rnn_state):
+        lead_dim, T, B, _ = infer_leading_dims(observation, self._obs_dim)
+        if init_rnn_state is not None and self.rnn_is_lstm: init_rnn_state = tuple(init_rnn_state)  # namedarraytuple -> tuple (h, c)
+        features = self.body(observation.view(T*B, -1))
+        rnn_input = torch.cat([
+            features.view(T,B,-1),
+            prev_action.view(T, B, -1),  # Assumed onehot.
+            prev_reward.view(T, B, 1),
+            ], dim=2)
+        rnn_out, next_rnn_state = self.rnn(rnn_input, init_rnn_state)
+        rnn_out = rnn_out.view(T*B, -1)
+        pi, v = self.pi(rnn_out), self.v(rnn_out).squeeze(-1)
+        pi, v = restore_leading_dims((pi, v), lead_dim, T, B)
+        if self.rnn_is_lstm: next_rnn_state = RnnState(next_rnn_state)
+        return pi, v, next_rnn_state
+
+class BsuiteRnnUnshared0Rnn(nn.Module):
+    def __init__(self,
+                 input_shape: Tuple,
+                 output_size: int,
+                 rnn_type: str = 'gru',
+                 rnn_size: int = 256,
+                 hidden_sizes: [List, Tuple] = None,
+                 baselines_init: bool = True,
+                 layer_norm: bool = False
+                 ):
+        super().__init__()
+        self._obs_dim = 2
+        self.rnn_is_lstm = rnn_type != 'gru'
+        input_size = int(np.prod(input_shape))
+        rnn_class = get_rnn_class(rnn_type, layer_norm)
+        self.rnn = rnn_class(input_size + output_size + 1, rnn_size)  # Concat action, reward
+        pi_inits = (O_INIT_VALUES['base'], O_INIT_VALUES['pi']) if baselines_init else None
+        v_inits = (O_INIT_VALUES['base'], O_INIT_VALUES['v']) if baselines_init else None
+        self.pi = nn.Sequential(MlpModel(rnn_size, hidden_sizes, output_size, nn.ReLU, pi_inits), nn.Softmax(-1))
+        self.v = nn.Sequential(MlpModel(rnn_size, hidden_sizes, 1, nn.ReLU, v_inits))
+        if baselines_init:
+            self.rnn.apply(apply_init)
+        self.pi, self.v = tscr(self.pi), tscr(self.v)
+
+    def forward(self, observation, prev_action, prev_reward, init_rnn_state):
+        lead_dim, T, B, _ = infer_leading_dims(observation, self._obs_dim)
+        if init_rnn_state is not None and self.rnn_is_lstm: init_rnn_state = tuple(init_rnn_state)  # namedarraytuple -> tuple (h, c)
+        rnn_input = torch.cat([
+            observation.view(T,B,-1),
+            prev_action.view(T, B, -1),  # Assumed onehot.
+            prev_reward.view(T, B, 1),
+            ], dim=2)
+        rnn_out, next_rnn_state = self.rnn(rnn_input, init_rnn_state)
+        rnn_out = rnn_out.view(T*B, -1)
+        pi, v = self.pi(rnn_out), self.v(rnn_out).squeeze(-1)
+        pi, v = restore_leading_dims((pi, v), lead_dim, T, B)
+        if self.rnn_is_lstm: next_rnn_state = RnnState(next_rnn_state)
+        return pi, v, next_rnn_state
+
+class BsuiteRnnUnshared1Rnn(nn.Module):
+    """Special case, rnn after processing for each head
+
+    Going to handle the hidden state by adding an extra dimension
+    """
+    def __init__(self,
+                 input_shape: Tuple,
+                 output_size: int,
+                 rnn_type: str = 'gru',
+                 rnn_size: int = 256,
+                 hidden_sizes: [List, Tuple] = None,
+                 baselines_init: bool = True,
+                 layer_norm: bool = False
+                 ):
+        super().__init__()
+        self._obs_dim = 2
+        self.rnn_is_lstm = rnn_type != 'gru'
+        input_size = int(np.prod(input_shape))
+        rnn_class = get_rnn_class(rnn_type, layer_norm)
+        self.body_pi = MlpModel(input_size, hidden_sizes, None, nn.ReLU, None)
+        self.body_v = MlpModel(input_size, hidden_sizes, None, nn.ReLU, None)
+        self.rnn_pi = rnn_class(self.body_pi.output_size + output_size + 1, rnn_size)  # Concat action, reward
+        self.rnn_v = rnn_class(self.body_v.output_size + output_size + 1, rnn_size)
+        self.pi = nn.Sequential(nn.ReLU(), nn.Linear(rnn_size, output_size), nn.Softmax(-1))  # Need to activate after lstm
+        self.v = nn.Sequential(nn.ReLU(), nn.Linear(rnn_size, 1))
+        if baselines_init:
+            self.body_pi.apply(apply_init); self.body_v.apply(apply_init)
+            self.rnn_pi.apply(apply_init); self.rnn_v.apply(apply_init)
+            self.pi.apply(partial(apply_init, O_INIT_VALUES['pi']))
+            self.v.apply(partial(apply_init, O_INIT_VALUES['v']))
+        self.body_pi, self.body_v, self.pi, self.v = tscr(self.body_pi), tscr(self.body_v), tscr(self.pi), tscr(self.v)
+
+    def forward(self, observation, prev_action, prev_reward, init_rnn_state):
+        lead_dim, T, B, _ = infer_leading_dims(observation, self._obs_dim)
+        if init_rnn_state is not None:
+            if self.rnn_is_lstm:
+                init_rnn_pi, init_rnn_v = tuple(init_rnn_state)  # DualRnnState -> RnnState_pi, RnnState_v
+                init_rnn_pi, init_rnn_v = tuple(init_rnn_pi), tuple(init_rnn_v)
+            else:
+                init_rnn_pi, init_rnn_v = tuple(init_rnn_state)  # DualRnnState -> h, h
+        else:
+            init_rnn_pi, init_rnn_v = None, None
+        o_flat = observation.view(T*B, -1)
+        b_pi, b_v = self.body_pi(o_flat), self.body_v(o_flat)
+        rnn_input_pi = torch.cat([b_pi.view(T,B,-1),prev_action.view(T, B, -1),prev_reward.view(T, B, 1),], dim=2)
+        rnn_input_v = torch.cat([b_v.view(T, B, -1), prev_action.view(T, B, -1), prev_reward.view(T, B, 1), ], dim=2)
+        rnn_pi, next_rnn_state_pi = self.rnn_pi(rnn_input_pi, init_rnn_pi)
+        rnn_v, next_rnn_state_v = self.rnn_pi(rnn_input_v, init_rnn_v)
+        rnn_pi = rnn_pi.view(T*B, -1); rnn_v = rnn_v.view(T*B, -1)
+        pi, v = self.pi(rnn_pi), self.v(rnn_v).squeeze(-1)
+        pi, v = restore_leading_dims((pi, v), lead_dim, T, B)
+        if self.rnn_is_lstm:
+            next_rnn_state = DualRnnState(RnnState(*next_rnn_state_pi), RnnState(*next_rnn_state_v))
+        else:
+            next_rnn_state = DualRnnState(next_rnn_state_pi, next_rnn_state_v)
+        return pi, v, next_rnn_state
+
 class BsuiteRnnModel(nn.Module):
     """ Basic recurrent actor-critic model for discrete state space
 
@@ -60,50 +239,30 @@ class BsuiteRnnModel(nn.Module):
                  input_shape: Tuple,
                  output_size: int,
                  hidden_sizes: [List, Tuple, None] = None,
-                 rnn_type: str = 'lstm',
-                 rnn_size: int = 128,
-                 nonlinearity: nn.Module = nn.ReLU
+                 rnn_type: str = 'gru',
+                 rnn_size: int = 256,
+                 inits: [(float, float, float), None] = (np.sqrt(2), 1., 0.01),
+                 shared_processor: bool = False,
+                 rnn_placement: int = 1,
+                 layer_norm: bool = False
                  ):
         super().__init__()
-        self._obs_ndim = 2
-        self.rnn_type = rnn_type
-        rnn_class = nn.GRU if rnn_type == 'gru' else nn.LSTM
-        input_size = input_shape[0] * input_shape[1]
-        self.preprocessor = MlpModel(input_size, hidden_sizes, None, nonlinearity)
-        self.rnn = rnn_class(self.preprocessor.output_size + output_size + 1, rnn_size)
-        self.v = tscr(nn.Linear(rnn_size, 1))
-        self.pi = tscr(nn.Sequential(nn.Linear(rnn_size, output_size), nn.Softmax(-1)))
+        if shared_processor and rnn_placement == 0:
+            self.model = BsuiteRnnShared0Rnn(input_shape, output_size, rnn_type, rnn_size, hidden_sizes,
+                                            inits is not None, layer_norm)
+        elif shared_processor and rnn_placement == 1:
+            self.model = BsuiteRnnShared1Rnn(input_shape, output_size, rnn_type, rnn_size, hidden_sizes,
+                                            inits is not None, layer_norm)
+        elif not shared_processor and rnn_placement == 0:
+            self.model = BsuiteRnnUnshared0Rnn(input_shape, output_size, rnn_type, rnn_size, hidden_sizes,
+                                              inits is not None, layer_norm)
+        elif not shared_processor and rnn_placement == 1:
+            self.model = BsuiteRnnUnshared1Rnn(input_shape, output_size, rnn_type, rnn_size, hidden_sizes,
+                                              inits is not None, layer_norm)
 
     def forward(self, observation, prev_action, prev_reward, init_rnn_state):
-        """ Compute action probabilities and value estimate
+        return self.model(observation, prev_action, prev_reward, init_rnn_state)
 
-        NOTE: Rnn concatenates previous action and reward to input
-        """
-        # Infer (presence of) leading dimensions: [T,B], [B], or [].
-        lead_dim, T, B, _ = infer_leading_dims(observation, self._obs_ndim)
-        # Convert init_rnn_state appropriately
-        if init_rnn_state is not None:
-            if self.rnn_type == 'gru':
-                init_rnn_state = init_rnn_state.h  # namedarraytuple -> h
-            else:
-                init_rnn_state = tuple(init_rnn_state)  # namedarraytuple -> tuple (h, c)
-        oh = self.preprocessor(observation.view(T*B, -1))
-        rnn_input = torch.cat([
-            oh.view(T,B,-1),
-            prev_action.view(T, B, -1),  # Assumed onehot.
-            prev_reward.view(T, B, 1),
-            ], dim=2)
-        rnn_out, h = self.rnn(rnn_input, init_rnn_state)
-        rnn_out = rnn_out.view(T*B, -1)
-        pi, v = self.pi(rnn_out), self.v(rnn_out).squeeze(-1)
-        # Restore leading dimensions: [T,B], [B], or [], as input.
-        pi, v = restore_leading_dims((pi, v), lead_dim, T, B)
-        # Model should always leave B-dimension in rnn state: [N,B,H].
-        if self.rnn_type == 'gru':
-            next_rnn_state = GruState(h=h)
-        else:
-            next_rnn_state = RnnState(*h)
-        return pi, v, next_rnn_state
 
 class BsuiteOcFfModel(nn.Module):
     """ Basic feedforward option-critic model for discrete state space

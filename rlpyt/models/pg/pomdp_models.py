@@ -1,5 +1,5 @@
 from rlpyt.models.discrete import OneHotLayer
-from rlpyt.models.utils import apply_init, O_INIT_VALUES
+from rlpyt.models.utils import apply_init, O_INIT_VALUES, get_rnn_class
 from rlpyt.models.mlp import MlpModel, layer_init
 from rlpyt.models.oc import OptionCriticHead_IndependentPreprocessor, OptionCriticHead_SharedPreprocessor
 from functools import partial
@@ -9,20 +9,11 @@ from torch.jit import script as tscr
 import numpy as np
 from typing import Tuple, List
 from rlpyt.utils.tensor import infer_leading_dims, restore_leading_dims
-import haste_pytorch as haste
 
 from rlpyt.utils.collections import namedarraytuple, namedtuple
 RnnState = namedarraytuple("RnnState", ["h", "c"])  # For downstream namedarraytuples to work
 DualRnnState = namedarraytuple("DualRnnState", ["pi", "v"])
 # GruState = namedarraytuple("GruState", ["h"])
-
-def get_rnn_class(rnn_type: str, layer_norm: bool):
-    if rnn_type == 'gru':
-        if layer_norm: return haste.LayerNormGRU
-        else: return nn.GRU
-    else:
-        if layer_norm: return haste.LayerNormLSTM
-        else: return nn.LSTM
 
 class ScriptedRNN(nn.Module):
     """ Workaround from PyTorch issue #32976 for scripting RNNs

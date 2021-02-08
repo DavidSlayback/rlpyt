@@ -1,4 +1,6 @@
 import torch
+import torch.nn as nn
+import haste_pytorch as haste
 import numpy as np
 
 O_INIT_VALUES = {
@@ -8,6 +10,14 @@ O_INIT_VALUES = {
     'pi': 1e-2,  # Policy init is much smaller
     'bias': 0.  # Bias in general is 0
 }
+
+def get_rnn_class(rnn_type: str, layer_norm: bool):
+    if rnn_type == 'gru':
+        if layer_norm: return haste.LayerNormGRU
+        else: return nn.GRU
+    else:
+        if layer_norm: return haste.LayerNormLSTM
+        else: return nn.LSTM
 
 def apply_init(module: torch.nn.Module,
                gain: float = O_INIT_VALUES['base'],

@@ -41,8 +41,8 @@ def build_and_train(env_id="catch/0", run_ID=0, cuda_idx=None, n_parallel=6):
 
     # Model kwargs
     # model_kwargs = dict()
-    model_kwargs = dict(hidden_sizes=[64, 64])
-    # model_kwargs = dict(hidden_sizes=[64, 64], rnn_type='gru', rnn_size=128)
+    # model_kwargs = dict(hidden_sizes=[64, 64])
+    model_kwargs = dict(hidden_sizes=[64, 64], rnn_type='gru', rnn_size=256, rnn_placement=1, shared_processor=True, layer_norm=True)
     # model_kwargs = dict(hidden_sizes=[64, 64], option_size=4, use_interest=False, use_diversity=False, use_attention=False)
     # model_kwargs = dict(hidden_sizes=[64, 64], option_size=4, use_interest=False, use_diversity=False,
     #                     use_attention=False, rnn_type='gru', rnn_size=128)
@@ -77,8 +77,8 @@ def build_and_train(env_id="catch/0", run_ID=0, cuda_idx=None, n_parallel=6):
     # algo = A2OC(discount=gamma, learning_rate=lr, clip_grad_norm=2.)
 
     # Agents
-    agent = BsuiteFfAgent(model_kwargs=model_kwargs)
-    # agent = BsuiteRnnAgent(model_kwargs=model_kwargs)
+    # agent = BsuiteFfAgent(model_kwargs=model_kwargs)
+    agent = BsuiteRnnAgent(model_kwargs=model_kwargs)
     # agent = BsuiteOcFfAgent(model_kwargs=model_kwargs)
     # agent = BsuiteOcRnnAgent(model_kwargs=model_kwargs)
     # agent = AlternatingBsuiteRnnAgent(model_kwargs=model_kwargs)
