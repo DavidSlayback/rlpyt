@@ -1,5 +1,48 @@
 
 import torch
+from typing import List
+
+
+#@torch.no_grad()
+#@torch.jit.script
+def build_packed_sequence_info(dones: torch.Tensor):
+    """Build info necessary to make packed sequence
+
+    Args:
+        dones: T x B
+    """
+    is_new_episodes = dones.roll(1,0)
+    is_new_episodes[0] = True  # First timestep is start of rollout
+    sequence_starts_flat = torch.nonzero(is_new_episodes.T.flatten()).flatten()  # Flatten to T*B. Must transpose first
+    lengths = sequence_starts_flat.roll(-1) - sequence_starts_flat
+    lengths[-1] = dones.numel() - sequence_starts_flat[-1]  # Last length
+    #sorted_lengths = torch.sort(lengths, descending=True)
+    #max_length = sorted_lengths.max()
+    return sequence_starts_flat, lengths, is_new_episodes
+
+#@torch.no_grad()
+#@torch.jit.script
+def build_padded_sequence(o: torch.Tensor, a: torch.Tensor, r: torch.Tensor, rnn_state: torch.Tensor, dones: torch.Tensor):
+    # a must be one-hot
+    T, B, N, H = rnn_state.size()
+    flat_ind, lengths, is_new_episodes = build_packed_sequence_info(dones)
+    length_list: List[int] = lengths.tolist()
+    # Flatten to indices correctly
+    o = o.T.reshape(T*B, *o.shape[2:])  # Have to call reshape here
+    a = a.view(T*B, -1)
+    r = r.view(T*B, -1)
+    # Create padded sequences
+    padded_o = torch.nn.utils.rnn.pad_sequence(o.split(length_list))
+    padded_a = torch.nn.utils.rnn.pad_sequence(a.split(length_list))
+    padded_r = torch.nn.utils.rnn.pad_sequence(r.split(length_list))
+    # Create corresponding rnn
+    init_rnns = rnn_state[is_new_episodes]
+    return padded_o, padded_a, padded_r, init_rnns
+
+
+
+
+
 
 
 def select_at_indexes(indexes, tensor):

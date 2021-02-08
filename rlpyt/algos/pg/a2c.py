@@ -81,6 +81,9 @@ class A2C(PolicyGradientAlgo):
             prev_action=samples.agent.prev_action,
             prev_reward=samples.env.prev_reward,
         )
+        o, a, r = agent_inputs
+        from rlpyt.utils.tensor import build_padded_sequence
+        test = build_padded_sequence(o, a, r, samples.agent.agent_info.prev_rnn_state, samples.env.done)
         if self.agent.recurrent:
             init_rnn_state = samples.agent.agent_info.prev_rnn_state[0]  # T = 0.
             # [B,N,H] --> [N,B,H] (for cudnn).
