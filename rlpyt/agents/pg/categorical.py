@@ -53,12 +53,12 @@ class CategoricalPgAgent(BaseAgent):
 
 class RecurrentCategoricalPgAgentBase(BaseAgent):
 
-    def __call__(self, observation, prev_action, prev_reward, init_rnn_state, device="cpu"):
+    def __call__(self, observation, prev_action, prev_reward, init_rnn_state, device="cpu", lengths=None):
         # Assume init_rnn_state already shaped: [N,B,H]
         prev_action = self.distribution.to_onehot(prev_action)
         model_inputs = buffer_to((observation, prev_action, prev_reward,
             init_rnn_state), device=self.device)
-        pi, value, next_rnn_state = self.model(*model_inputs)
+        pi, value, next_rnn_state = self.model.forward(*model_inputs, lengths=lengths)
         dist_info, value = buffer_to((DistInfo(prob=pi), value), device=device)
         return dist_info, value, next_rnn_state  # Leave rnn_state on device.
 

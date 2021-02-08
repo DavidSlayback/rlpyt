@@ -29,15 +29,15 @@ def build_padded_sequence(o: torch.Tensor, a: torch.Tensor, r: torch.Tensor, rnn
     length_list: List[int] = lengths.tolist()
     # Flatten to indices correctly
     o = o.T.reshape(T*B, *o.shape[2:])  # Have to call reshape here
-    a = a.view(T*B, -1)
-    r = r.view(T*B, -1)
+    a = a.T.reshape(T*B)
+    r = r.T.reshape(T*B)
     # Create padded sequences
     padded_o = torch.nn.utils.rnn.pad_sequence(o.split(length_list))
     padded_a = torch.nn.utils.rnn.pad_sequence(a.split(length_list))
     padded_r = torch.nn.utils.rnn.pad_sequence(r.split(length_list))
     # Create corresponding rnn
-    init_rnns = rnn_state[is_new_episodes]
-    return padded_o, padded_a, padded_r, init_rnns
+    init_rnns = rnn_state[is_new_episodes].transpose(1,2).contiguous()
+    return padded_o, padded_a, padded_r, init_rnns, lengths
 
 
 

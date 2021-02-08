@@ -147,7 +147,7 @@ class POMDPRnnShared1Rnn(nn.Module):
             self.v.apply(partial(apply_init, gain=O_INIT_VALUES['v']))
         self.body, self.pi, self.v = tscr(self.body), tscr(self.pi), tscr(self.v)
 
-    def forward(self, observation, prev_action, prev_reward, init_rnn_state):
+    def forward(self, observation, prev_action, prev_reward, init_rnn_state, lengths=None):
         lead_dim, T, B, _ = infer_leading_dims(observation, self._obs_dim)
         if init_rnn_state is not None and self.rnn_is_lstm: init_rnn_state = tuple(init_rnn_state)  # namedarraytuple -> tuple (h, c)
         oh = self.preprocessor(observation)  # Leave in TxB format for lstm
@@ -157,7 +157,9 @@ class POMDPRnnShared1Rnn(nn.Module):
             prev_action.view(T, B, -1),  # Assumed onehot.
             prev_reward.view(T, B, 1),
             ], dim=2)
+        if lengths: rnn_input = nn.utils.rnn.pack_padded_sequence(rnn_input, lengths, enforce_sorted=False)
         rnn_out, next_rnn_state = self.rnn(rnn_input, init_rnn_state)
+        if lengths: rnn_out = nn.utils.rnn.pad_packed_sequence(rnn_out)
         rnn_out = rnn_out.view(T*B, -1)
         pi, v = self.pi(rnn_out), self.v(rnn_out).squeeze(-1)
         pi, v = restore_leading_dims((pi, v), lead_dim, T, B)

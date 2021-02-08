@@ -83,7 +83,9 @@ class A2C(PolicyGradientAlgo):
         )
         o, a, r = agent_inputs
         from rlpyt.utils.tensor import build_padded_sequence
-        test = build_padded_sequence(o, a, r, samples.agent.agent_info.prev_rnn_state, samples.env.done)
+        o2,a2,r2,rnn_state2, lengths = build_padded_sequence(o, a, r, samples.agent.agent_info.prev_rnn_state, samples.env.done)
+        a2 = self.agent.distribution.to_onehot(a2)
+        dist_info, value, _rnn_state = self.agent(o2,a2,r2, rnn_state2, device=agent_inputs.prev_action.device, lengths=lengths)
         if self.agent.recurrent:
             init_rnn_state = samples.agent.agent_info.prev_rnn_state[0]  # T = 0.
             # [B,N,H] --> [N,B,H] (for cudnn).
