@@ -174,7 +174,7 @@ class RefactoredMujocoOcFfModel(torch.nn.Module):
             use_interest=use_interest,
             use_diversity=use_diversity,
             use_attention=use_attention,
-            orthogonal_init=baselines_init,
+            baselines_init=baselines_init,
             orthogonal_init_base=inits_v[1],
             orthogonal_init_pol=inits_mu[1]
         )

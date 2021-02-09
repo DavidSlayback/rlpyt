@@ -1,7 +1,7 @@
 from rlpyt.models.discrete import OneHotLayer
 from rlpyt.models.utils import apply_init, O_INIT_VALUES, get_rnn_class
 from rlpyt.models.mlp import MlpModel, layer_init
-from rlpyt.models.oc import OptionCriticHead_IndependentPreprocessor, OptionCriticHead_SharedPreprocessor
+from rlpyt.models.oc import OptionCriticHead_IndependentPreprocessor, OptionCriticHead_SharedPreprocessor, OptionCriticHead_IndependentPreprocessorWithRNN
 from functools import partial
 import torch
 import torch.nn as nn
@@ -13,6 +13,8 @@ from rlpyt.utils.tensor import infer_leading_dims, restore_leading_dims
 from rlpyt.utils.collections import namedarraytuple, namedtuple
 RnnState = namedarraytuple("RnnState", ["h", "c"])  # For downstream namedarraytuples to work
 DualRnnState = namedarraytuple("DualRnnState", ["pi", "v"])
+OCMultiRnnState = namedarraytuple("IocRnnState", ["pi", "beta", "q", "pi_omega", "I"])
+OCMultiRnnState_NoInterest = namedarraytuple("OcRnnState", ["pi", "beta", "q", "pi_omega"])
 # GruState = namedarraytuple("GruState", ["h"])
 
 class ScriptedRNN(nn.Module):
@@ -229,17 +231,6 @@ class POMDPRnnUnshared1Rnn(nn.Module):
 
     def forward(self, observation, prev_action, prev_reward, init_rnn_state):
         lead_dim, T, B, _ = infer_leading_dims(observation, self._obs_dim)
-        # init_rnn_state is either tuple(h,c), h, or None.
-        # Typical h is nlayers*ndir x B x hsize. I can't stack in 1st 2 dims without
-        # if init_rnn_state is not None:
-        #     if self.rnn_is_lstm:
-        #         h_pi, h_v = init_rnn_state.h.chunk(2, dim=-1)
-        #         c_pi, c_v = init_rnn_state.c.chunk(2, dim=-1)
-        #         init_rnn_pi, init_rnn_v = (h_pi, c_pi), (h_v, c_v)
-        #     else:
-        #         init_rnn_pi, init_rnn_v = init_rnn_state.chunk(2, dim=-1)
-        # else:
-        #     init_rnn_pi, init_rnn_v = None, None
         if init_rnn_state is not None:
             if self.rnn_is_lstm:
                 init_rnn_pi, init_rnn_v = tuple(init_rnn_state)  # DualRnnState -> RnnState_pi, RnnState_v
@@ -257,11 +248,6 @@ class POMDPRnnUnshared1Rnn(nn.Module):
         rnn_pi = rnn_pi.view(T*B, -1); rnn_v = rnn_v.view(T*B, -1)
         pi, v = self.pi(rnn_pi), self.v(rnn_v).squeeze(-1)
         pi, v = restore_leading_dims((pi, v), lead_dim, T, B)
-        # if self.rnn_is_lstm:
-        #     next_rnn_state = RnnState(h=torch.cat((next_rnn_state_pi[0], next_rnn_state_v[0]), dim=-1),
-        #                               c=torch.cat((next_rnn_state_pi[1], next_rnn_state_v[1]), dim=-1))
-        # else:
-        #     next_rnn_state = torch.cat((next_rnn_state_pi, next_rnn_state_v), dim=-1)
         if self.rnn_is_lstm:
             next_rnn_state = DualRnnState(RnnState(*next_rnn_state_pi), RnnState(*next_rnn_state_v))
         else:
@@ -279,9 +265,9 @@ class POMDPRnnModel(nn.Module):
         rnn_size (int): Size of rnn layer
         hidden_sizes (list): can be empty list for none (linear model).
         inits: tuple(ints): Orthogonal initialization for base, value, and policy (or None for standard init)
-        nonlinearity (nn.Module): Nonlinearity applied in MLP component
         shared_processor (bool): Whether to share model processor (MLP) between heads. Onehot is shared anyway
         rnn_placement (int): 0 for right after one-hot, 1 for right after MLP
+        layer_norm (bool): True for layer-normalized GRU/LSTM
     """
     def __init__(self,
                  input_classes: int,
@@ -344,9 +330,7 @@ class POMDPOcFfModel(nn.Module):
                 use_interest=use_interest,
                 use_attention=use_attention,
                 use_diversity=use_diversity,
-                orthogonal_init=True,
-                orthogonal_init_base=inits[1],
-                orthogonal_init_pol=inits[2]
+                baselines_init=True,
             )))
         else:
             # Seperate mlp processors for each head (though if using diversity, q entropy and q share mlp
@@ -359,9 +343,7 @@ class POMDPOcFfModel(nn.Module):
                 use_interest=use_interest,
                 use_diversity=use_diversity,
                 use_attention=use_attention,
-                orthogonal_init=True,
-                orthogonal_init_base=inits[1],
-                orthogonal_init_pol=inits[2]
+                baselines_init=True,
             ))
 
     def forward(self, observation, prev_action, prev_reward):
@@ -376,6 +358,213 @@ class POMDPOcFfModel(nn.Module):
         pi, beta, q, pi_omega, q_ent = restore_leading_dims((pi, beta, q, pi_omega, q_ent), lead_dim, T, B)
         return pi, beta, q, pi_omega
 
+class POMDPOcRnnShared0Model(nn.Module):
+    def __init__(self,
+                 input_classes: int,
+                 output_size: int,
+                 option_size: int,
+                 hidden_sizes: [List, Tuple, None] = None,
+                 rnn_type: str = 'gru',
+                 rnn_size: int = 256,
+                 baselines_init: bool = True,
+                 layer_norm: bool = False,
+                 use_interest: bool = False,  # IOC sigmoid interest functions
+                 use_diversity: bool = False,  # TDEOC q entropy output
+                 use_attention: bool = False):
+        super().__init__()
+        self._obs_ndim = 0
+        self.rnn_is_lstm = rnn_type != 'gru'
+        self.preprocessor = tscr(OneHotLayer(input_classes))
+        rnn_class = get_rnn_class(rnn_type, layer_norm)
+        self.rnn = rnn_class(input_classes + output_size + 1, rnn_size)  # Concat action, reward
+        self.body = MlpModel(rnn_size, hidden_sizes, None, nn.ReLU, None)
+        self.oc = OptionCriticHead_SharedPreprocessor(
+            input_size=self.body.output_size,
+            output_size=output_size,
+            option_size=option_size,
+            intra_option_policy='discrete',
+            use_interest=use_interest,
+            use_diversity=use_diversity,
+            use_attention=use_attention,
+            baselines_init=baselines_init)
+        if baselines_init:
+            self.rnn.apply(partial(apply_init, gain=O_INIT_VALUES['lstm']))
+            self.body.apply(apply_init)
+
+    def forward(self, observation, prev_action, prev_reward, init_rnn_state):
+        lead_dim, T, B, _ = infer_leading_dims(observation, self._obs_ndim)
+        if init_rnn_state is not None and self.rnn_is_lstm: init_rnn_state = tuple(init_rnn_state)  # namedarraytuple -> tuple (h, c)
+        o = self.preprocessor(observation)
+        rnn_input = torch.cat([
+            o.view(T,B,-1),
+            prev_action.view(T, B, -1),  # Assumed onehot.
+            prev_reward.view(T, B, 1),
+            ], dim=2)
+        rnn_out, next_rnn_state = self.rnn(rnn_input, init_rnn_state)
+        rnn_out = rnn_out.view(T*B, -1)
+        features = self.body(rnn_out)
+        pi, beta, q, pi_omega, q_ent = self.oc(features)
+        pi, beta, q, pi_omega, q_ent = restore_leading_dims((pi, beta, q, pi_omega, q_ent), lead_dim, T, B)
+        if self.rnn_is_lstm: next_rnn_state = RnnState(next_rnn_state)
+        return pi, beta, q, pi_omega, next_rnn_state
+
+
+class POMDPOcRnnShared1Model(nn.Module):
+    def __init__(self,
+                 input_classes: int,
+                 output_size: int,
+                 option_size: int,
+                 hidden_sizes: [List, Tuple, None] = None,
+                 rnn_type: str = 'gru',
+                 rnn_size: int = 256,
+                 baselines_init: bool = True,
+                 layer_norm: bool = False,
+                 use_interest: bool = False,  # IOC sigmoid interest functions
+                 use_diversity: bool = False,  # TDEOC q entropy output
+                 use_attention: bool = False):
+        super().__init__()
+        self._obs_ndim = 0
+        self.rnn_is_lstm = rnn_type != 'gru'
+        self.preprocessor = tscr(OneHotLayer(input_classes))
+        rnn_class = get_rnn_class(rnn_type, layer_norm)
+        self.body = MlpModel(input_classes, hidden_sizes, None, nn.ReLU, None)
+        self.rnn = rnn_class(self.body.output_size + output_size + 1, rnn_size)  # Concat action, reward
+        self.oc = OptionCriticHead_SharedPreprocessor(
+            input_size=rnn_size,
+            output_size=output_size,
+            option_size=option_size,
+            intra_option_policy='discrete',
+            use_interest=use_interest,
+            use_diversity=use_diversity,
+            use_attention=use_attention,
+            baselines_init=baselines_init)
+        if baselines_init:
+            self.rnn.apply(partial(apply_init, gain=O_INIT_VALUES['lstm']))
+            self.body.apply(apply_init)
+
+    def forward(self, observation, prev_action, prev_reward, init_rnn_state):
+        lead_dim, T, B, _ = infer_leading_dims(observation, self._obs_ndim)
+        if init_rnn_state is not None and self.rnn_is_lstm: init_rnn_state = tuple(init_rnn_state)  # namedarraytuple -> tuple (h, c)
+        o = self.preprocessor(observation.view(T * B))
+        features = self.body(o)
+        rnn_input = torch.cat([
+            features.view(T,B,-1),
+            prev_action.view(T, B, -1),  # Assumed onehot.
+            prev_reward.view(T, B, 1),
+            ], dim=2)
+        rnn_out, next_rnn_state = self.rnn(rnn_input, init_rnn_state)
+        rnn_out = rnn_out.view(T*B, -1)
+        pi, beta, q, pi_omega, q_ent = self.oc(rnn_out)
+        pi, beta, q, pi_omega, q_ent = restore_leading_dims((pi, beta, q, pi_omega, q_ent), lead_dim, T, B)
+        if self.rnn_is_lstm: next_rnn_state = RnnState(next_rnn_state)
+        return pi, beta, q, pi_omega, next_rnn_state
+
+
+class POMDPOcRnnUnshared0Model(nn.Module):
+    def __init__(self,
+                 input_classes: int,
+                 output_size: int,
+                 option_size: int,
+                 hidden_sizes: [List, Tuple, None] = None,
+                 rnn_type: str = 'gru',
+                 rnn_size: int = 256,
+                 baselines_init: bool = True,
+                 layer_norm: bool = False,
+                 use_interest: bool = False,  # IOC sigmoid interest functions
+                 use_diversity: bool = False,  # TDEOC q entropy output
+                 use_attention: bool = False):
+        super().__init__()
+        self._obs_ndim = 0
+        self.rnn_is_lstm = rnn_type != 'gru'
+        self.preprocessor = tscr(OneHotLayer(input_classes))
+        rnn_class = get_rnn_class(rnn_type, layer_norm)
+        self.rnn = rnn_class(input_classes + output_size + 1, rnn_size)  # Concat action, reward
+        body_mlp_class = partial(MlpModel, hidden_sizes=hidden_sizes, output_size=None, nonlinearity=nn.ReLU, inits=None)
+        self.oc = OptionCriticHead_IndependentPreprocessor(
+            input_size=rnn_size,
+            input_module_class=body_mlp_class,
+            output_size=output_size,
+            option_size=option_size,
+            intra_option_policy='discrete',
+            use_interest=use_interest,
+            use_diversity=use_diversity,
+            use_attention=use_attention,
+            baselines_init=baselines_init)
+        if baselines_init:
+            self.rnn.apply(partial(apply_init, gain=O_INIT_VALUES['lstm']))
+
+    def forward(self, observation, prev_action, prev_reward, init_rnn_state):
+        lead_dim, T, B, _ = infer_leading_dims(observation, self._obs_ndim)
+        if init_rnn_state is not None and self.rnn_is_lstm: init_rnn_state = tuple(init_rnn_state)  # namedarraytuple -> tuple (h, c)
+        o = self.preprocessor(observation)
+        rnn_input = torch.cat([
+            o.view(T,B,-1),
+            prev_action.view(T, B, -1),  # Assumed onehot.
+            prev_reward.view(T, B, 1),
+            ], dim=2)
+        rnn_out, next_rnn_state = self.rnn(rnn_input, init_rnn_state)
+        rnn_out = rnn_out.view(T*B, -1)
+        pi, beta, q, pi_omega, q_ent = self.oc(rnn_out)
+        pi, beta, q, pi_omega, q_ent = restore_leading_dims((pi, beta, q, pi_omega, q_ent), lead_dim, T, B)
+        if self.rnn_is_lstm: next_rnn_state = RnnState(next_rnn_state)
+        return pi, beta, q, pi_omega, next_rnn_state
+
+
+class POMDPOcRnnUnshared1Model(nn.Module):
+    def __init__(self,
+                 input_classes: int,
+                 output_size: int,
+                 option_size: int,
+                 hidden_sizes: [List, Tuple, None] = None,
+                 rnn_type: str = 'gru',
+                 rnn_size: int = 256,
+                 baselines_init: bool = True,
+                 layer_norm: bool = False,
+                 use_interest: bool = False,  # IOC sigmoid interest functions
+                 use_diversity: bool = False,  # TDEOC q entropy output
+                 use_attention: bool = False):
+        super().__init__()
+        self._obs_ndim = 0
+        self.rnn_is_lstm = rnn_type != 'gru'
+        self.preprocessor = tscr(OneHotLayer(input_classes))
+        rnn_class = get_rnn_class(rnn_type, layer_norm)
+        self.rnn = rnn_class(input_classes + output_size + 1, rnn_size)  # Concat action, reward
+        body_mlp_class = partial(MlpModel, hidden_sizes=hidden_sizes, output_size=None, nonlinearity=nn.ReLU, inits=None)
+        self.oc = OptionCriticHead_IndependentPreprocessorWithRNN(
+            input_size=input_classes,
+            input_module_class=body_mlp_class,
+            rnn_module_class=rnn_class,
+            output_size=output_size,
+            option_size=option_size,
+            rnn_size=rnn_size,
+            intra_option_policy='discrete',
+            use_interest=use_interest,
+            use_diversity=use_diversity,
+            use_attention=use_attention,
+            baselines_init=baselines_init)
+        if baselines_init:
+            self.rnn.apply(partial(apply_init, gain=O_INIT_VALUES['lstm']))
+
+    def forward(self, observation, prev_action, prev_reward, init_rnn_state):
+        lead_dim, T, B, _ = infer_leading_dims(observation, self._obs_ndim)
+        if init_rnn_state is not None:
+            if self.rnn_is_lstm:
+                init_rnn_pi, init_rnn_beta, init_rnn_q, init_rnn_pi_omega, init_rnn_I = tuple(init_rnn_state)  # DualRnnState -> RnnState_pi, RnnState_v
+                init_rnn_pi, init_rnn_q, init_rnn_beta, init_rnn_pi_omega, init_rnn_I = tuple(init_rnn_pi), tuple(init_rnn_q), tuple(init_rnn_beta), tuple(init_rnn_pi_omega), tuple(init_rnn_I)
+            else:
+                init_rnn_pi, init_rnn_beta, init_rnn_q, init_rnn_pi_omega, init_rnn_I = tuple(init_rnn_state)  # DualRnnState -> h, h
+        else:
+            init_rnn_pi, init_rnn_beta, init_rnn_q, init_rnn_pi_omega, init_rnn_I = None, None, None, None, None
+        o = self.preprocessor(observation.view(T * B))
+        pi, beta, q, pi_omega, q_ent, (nrs_pi, nrs_beta, nrs_q, nrs_pi_omega, nrs_I) = \
+            self.oc(o, prev_action, prev_reward, T, B, (init_rnn_pi, init_rnn_beta, init_rnn_q, init_rnn_pi_omega, init_rnn_I))
+        pi, beta, q, pi_omega, q_ent = restore_leading_dims((pi, beta, q, pi_omega, q_ent), lead_dim, T, B)
+        if self.rnn_is_lstm:
+            next_rnn_state = DualRnnState(RnnState(*nrs_pi), RnnState(*nrs_beta), RnnState(*nrs_q), RnnState(*nrs_pi_omega), RnnState(*nrs_I))
+        else:
+            next_rnn_state = OCMultiRnnState(nrs_pi, nrs_beta, nrs_q, nrs_pi_omega, nrs_I)
+        return pi, beta, q, pi_omega, next_rnn_state
+
 class POMDPOcRnnModel(nn.Module):
     """ Basic feedforward option-critic model for discrete state space
 
@@ -386,76 +575,44 @@ class POMDPOcRnnModel(nn.Module):
         hidden_sizes (list): can be empty list for none (linear model).
         rnn_type (str): Either 'gru' or 'lstm'
         rnn_size (int): Number of units in recurrent layer
+        shared_processor (bool): Shared MLP for each head or not
+        rnn_placement (int): Specifies where in architecture to place rnn
+            0: Immediately after one-hot
+            1: After MLP. If shared MLP, there's one. If independent MLP, there's one for each head
         inits: tuple(ints): Orthogonal initialization for base, value, and policy (or None for standard init)
-        nonlinearity (nn.Module): Nonlinearity applied in MLP component
         use_interest (bool): Use an interest function (IOC)
         use_diversity (bool): Use termination diversity objective (TDEOC)
         use_attention(bool): Use attention mechanism (AOC)
+        layer_norm (bool): True for layer-normalized GRU/LSTM
     """
     def __init__(self,
                  input_classes: int,
                  output_size: int,
                  option_size: int,
                  rnn_type: str = 'gru',
-                 rnn_size: int = 128,
+                 rnn_size: int = 256,
+                 shared_processor: bool = False,
                  rnn_placement: int = 1,
                  hidden_sizes: [List, Tuple, None] = None,
                  inits: [(float, float, float), None] = (np.sqrt(2), 1., 0.01),
-                 shared_processor: bool = False,
-                 hidden_nonlinearity=torch.nn.ReLU,  # Module form.
                  use_interest: bool = False,  # IOC sigmoid interest functions
                  use_diversity: bool = False,  # TDEOC q entropy output
                  use_attention: bool = False,
+                 layer_norm: bool = True
                  ):
         super().__init__()
-        self._obs_ndim = 0
-        self.preprocessor = tscr(OneHotLayer(input_classes))
-        self.rnn_type = rnn_type
-        rnn_class = nn.GRU if rnn_type == 'gru' else nn.LSTM
-        self.rnn = rnn_class(input_classes + output_size + 1, rnn_size)  # At some point, want to put option in here too
-        body_mlp_class = partial(MlpModel, hidden_sizes=hidden_sizes, output_size=None, nonlinearity=hidden_nonlinearity, inits=inits[:-1])  # MLP with no head (and potentially no body)
-        # Seperate mlp processors for each head
-        self.model = tscr(OptionCriticHead_IndependentPreprocessor(
-            input_size=rnn_size,
-            input_module_class=body_mlp_class,
-            output_size=output_size,
-            option_size=option_size,
-            intra_option_policy='discrete',
-            use_interest=use_interest,
-            use_diversity=use_diversity,
-            use_attention=use_attention,
-            orthogonal_init=True,
-            orthogonal_init_base=inits[1],
-            orthogonal_init_pol=inits[2]
-        ))
+        if shared_processor and rnn_placement == 0:
+            self.model = POMDPOcRnnShared0Model(input_classes, output_size, option_size, hidden_sizes, rnn_type, rnn_size,
+                                            inits is not None, layer_norm, use_interest, use_diversity, use_attention)
+        elif shared_processor and rnn_placement == 1:
+            self.model = POMDPOcRnnShared1Model(input_classes, output_size, option_size, hidden_sizes, rnn_type, rnn_size,
+                                            inits is not None, layer_norm, use_interest, use_diversity, use_attention)
+        elif not shared_processor and rnn_placement == 0:
+            self.model = POMDPOcRnnUnshared0Model(input_classes, output_size, option_size, hidden_sizes, rnn_type, rnn_size,
+                                            inits is not None, layer_norm, use_interest, use_diversity, use_attention)
+        elif not shared_processor and rnn_placement == 1:
+            self.model = POMDPOcRnnUnshared1Model(input_classes, output_size, option_size, hidden_sizes, rnn_type, rnn_size,
+                                            inits is not None, layer_norm, use_interest, use_diversity, use_attention)
 
     def forward(self, observation, prev_action, prev_reward, init_rnn_state):
-        """ Compute action probabilities and value estimate
-
-        NOTE: Rnn concatenates previous action and reward to input
-        """
-        # Infer (presence of) leading dimensions: [T,B], [B], or [].
-        lead_dim, T, B, _ = infer_leading_dims(observation, self._obs_ndim)
-        # Convert init_rnn_state appropriately
-        if init_rnn_state is not None:
-            if self.rnn_type == 'gru':
-                init_rnn_state = init_rnn_state.h  # namedarraytuple -> h
-            else:
-                init_rnn_state = tuple(init_rnn_state)  # namedarraytuple -> tuple (h, c)
-        oh = self.preprocessor(observation)  # Leave in TxB format for lstm
-        rnn_input = torch.cat([
-            oh.view(T,B,-1),
-            prev_action.view(T, B, -1),  # Assumed onehot.
-            prev_reward.view(T, B, 1),
-            ], dim=2)
-        rnn_out, h = self.rnn(rnn_input, init_rnn_state)
-        rnn_out = rnn_out.view(T*B, -1)
-        pi, beta, q, pi_omega, q_ent = self.model(rnn_out)
-        # Restore leading dimensions: [T,B], [B], or [], as input.
-        pi, beta, q, pi_omega, q_ent = restore_leading_dims((pi, beta, q, pi_omega, q_ent), lead_dim, T, B)
-        # Model should always leave B-dimension in rnn state: [N,B,H].
-        if self.rnn_type == 'gru':
-            next_rnn_state = GruState(h=h)
-        else:
-            next_rnn_state = RnnState(*h)
-        return pi, beta, q, pi_omega, next_rnn_state
+        return self.model(observation, prev_action, prev_reward, init_rnn_state)

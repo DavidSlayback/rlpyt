@@ -300,7 +300,7 @@ class BsuiteOcFfModel(nn.Module):
             use_interest=use_interest,
             use_diversity=use_diversity,
             use_attention=use_attention,
-            orthogonal_init=True,
+            baselines_init=True,
             orthogonal_init_base=inits[1],
             orthogonal_init_pol=inits[2]
         ))
@@ -365,7 +365,7 @@ class BsuiteOcRnnModel(nn.Module):
             use_interest=use_interest,
             use_diversity=use_diversity,
             use_attention=use_attention,
-            orthogonal_init=True,
+            baselines_init=True,
             orthogonal_init_base=inits[1],
             orthogonal_init_pol=inits[2]
         ))
