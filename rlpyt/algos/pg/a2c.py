@@ -28,6 +28,7 @@ class A2C(PolicyGradientAlgo):
             clip_grad_norm=1.,
             initial_optim_state_dict=None,
             gae_lambda=1,
+            linear_lr_schedule=False,
             normalize_advantage=False,
             normalize_rewards=None,  # Can be 'return' (OpenAI, no mean subtraction), 'reward' (same as obs normalization) or None
             rew_clip=(-10, 10),  # Additional clipping for reward (if normalizing reward)
@@ -40,6 +41,10 @@ class A2C(PolicyGradientAlgo):
 
     def initialize(self, *args, **kwargs):
         super().initialize(*args, **kwargs)
+        if self.linear_lr_schedule:
+            self.lr_scheduler = torch.optim.lr_scheduler.LambdaLR(
+                optimizer=self.optimizer,
+                lr_lambda=lambda itr: (self.n_itr - itr) / self.n_itr)  # Step once per itr.
         self._batch_size = self.batch_spec.size  # For logging.
 
     def optimize_agent(self, itr, samples):
@@ -64,6 +69,8 @@ class A2C(PolicyGradientAlgo):
             perplexity=perplexity.item(),
         )
         self.update_counter += 1
+        if self.linear_lr_schedule:
+            self.lr_scheduler.step()
         return opt_info
 
     def loss(self, samples):

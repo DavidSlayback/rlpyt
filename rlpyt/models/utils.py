@@ -144,7 +144,7 @@ class Dummy(torch.nn.Module):
     """
     def __init__(self, out_size, out_value=1.):
         super().__init__()
-        self.out = torch.nn.Parameter(torch.full((out_size,), out_value), requires_grad=False)
+        self.out = torch.full((out_size,), out_value)
 
     def forward(self, x):
         return self.out.expand(x.size(0), -1)

@@ -9,7 +9,8 @@ nsteps = 5e5  # Is fine for hallway1, bump for hallway2 and rocksample
 base_sampler_args = dict(batch_T=batch_T, batch_B=batch_B, max_decorrelation_steps=0)
 base_runner_args = dict(n_steps=nsteps, log_interval_steps=1e3, seed=None)
 base_env_args = dict(fomdp=False, id='POMDP-hallway-continuing-v0', time_limit=100)  # Partially-observable, time_limit as in cassandra's thesis
-base_oc_args = dict(option_size=4, use_interest=False, use_diversity=False, use_attention=False)  # OC model args
+base_oc_model_args = dict(option_size=4, use_interest=False, use_diversity=False, use_attention=False)  # OC model args
+base_oc_algo_args = dict(termination_lr=5e-7, pi_omega_lr=0., interest_lr=1e-3, delib_cost=0.)
 base_rnn_args = dict(rnn_type='gru', rnn_size=256, rnn_placement=1, shared_processor=True, layer_norm=True)  # Base rnn args, best I've seen
 
 
@@ -37,8 +38,8 @@ config = dict(
 )
 configs['hallway_5e5'] = config
 config = deepcopy(config)
-config['model'] = {**config['model'], **base_oc_args}
-config['algo'] = {**config['algo'], **{'delib_cost': 0.}}
+config['model'] = {**config['model'], **base_oc_model_args}
+config['algo'] = {**config['algo'], **base_oc_algo_args}
 configs['hallway_5e5_oc'] = config
 config = deepcopy(configs['hallway_5e5'])
 config['model'] = {**config['model'], **base_rnn_args}

@@ -21,10 +21,10 @@ class A2OC(OCAlgo):
     def __init__(
             self,
             discount=0.99,
-            learning_rate=0.001,  # Main learning rate
-            termination_lr=0.001,  # Termination learning rate
-            pi_omega_lr=0.001,  # policy over options learning rate
-            interest_lr=0.001,  # Learning rate for interest function
+            learning_rate=1e-3,  # Main learning rate
+            termination_lr=5e-7,  # Termination learning rate
+            pi_omega_lr=0.,  # policy over options learning rate
+            interest_lr=1e-3,  # Learning rate for interest function
             value_loss_coeff=0.5,
             termination_loss_coeff=1.,  # Coefficient for termination loss component
             entropy_loss_coeff=0.01,  # Entropy loss for low-level policy
@@ -49,6 +49,10 @@ class A2OC(OCAlgo):
 
     def initialize(self, *args, **kwargs):
         super().initialize(*args, **kwargs)
+        if self.linear_lr_schedule:
+            self.lr_scheduler = torch.optim.lr_scheduler.LambdaLR(
+                optimizer=self.optimizer,
+                lr_lambda=lambda itr: (self.n_itr - itr) / self.n_itr)  # Step once per itr.
         self._batch_size = self.batch_spec.size  # For logging.
 
     def optimize_agent(self, itr, samples):
@@ -62,7 +66,7 @@ class A2OC(OCAlgo):
         loss, pi_loss, value_loss, beta_loss, pi_omega_loss, entropy, entropy_o = self.loss(samples)
         loss.backward()
         grad_norm = torch.nn.utils.clip_grad_norm_(
-            self.agent.parameters(), self.clip_grad_norm)
+            self.agent.model.parameters(), self.clip_grad_norm)
         self.optimizer.step()
         opt_info = OptInfoOC(
             loss=loss.item(),
@@ -75,6 +79,8 @@ class A2OC(OCAlgo):
             pi_omega_entropy=entropy_o.item()
         )
         self.update_counter += 1
+        if self.linear_lr_schedule:
+            self.lr_scheduler.step()
 
         return opt_info
 

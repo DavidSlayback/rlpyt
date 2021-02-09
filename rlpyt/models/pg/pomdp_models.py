@@ -312,7 +312,11 @@ class POMDPOcFfModel(nn.Module):
         option_size (int): Number of options
         hidden_sizes (list): can be empty list for none (linear model).
         inits: tuple(ints): Orthogonal initialization for base, value, and policy (or None for standard init)
-        nonlinearity (nn.Module): Nonlinearity applied in MLP component
+        shared_processor (bool): Whether to share MLP among heads or reuse
+        hidden_nonlinearity (nn.Module): Nonlinearity applied in MLP component
+        use_interest (bool): Sigmoid interest functions
+        use_diversity (bool): Q entropy output
+        use_attention (bool): Attention masking of state **NOT IMPLEMENTED**
     """
     def __init__(self,
                  input_classes: int,
@@ -320,7 +324,8 @@ class POMDPOcFfModel(nn.Module):
                  option_size: int,
                  hidden_sizes: [List, Tuple, None] = None,
                  inits: [(float, float, float), None] = (np.sqrt(2), 1., 0.01),
-                 hidden_nonlinearity=torch.nn.Tanh,  # Module form.
+                 shared_processor: bool = True,
+                 hidden_nonlinearity=torch.nn.ReLU,  # Module form.
                  use_interest=False,  # IOC sigmoid interest functions
                  use_diversity=False,  # TDEOC q entropy output
                  use_attention=False,
@@ -329,22 +334,35 @@ class POMDPOcFfModel(nn.Module):
         self._obs_ndim = 0
         self.preprocessor = tscr(OneHotLayer(input_classes))
         body_mlp_class = partial(MlpModel, hidden_sizes=hidden_sizes, output_size=None, nonlinearity=hidden_nonlinearity, inits=inits[:-1])  # MLP with no head (and potentially no body)
-        # Seperate mlp processors for each head
-        self.model = tscr(OptionCriticHead_IndependentPreprocessor(
-            input_size=input_classes,
-            input_module_class=body_mlp_class,
-            output_size=output_size,
-            option_size=option_size,
-            intra_option_policy='discrete',
-            use_interest=use_interest,
-            use_diversity=use_diversity,
-            use_attention=use_attention,
-            orthogonal_init=True,
-            orthogonal_init_base=inits[1],
-            orthogonal_init_pol=inits[2]
-        ))
-        #self.v = tscr(MlpModel(input_classes, hidden_sizes, 1, nonlinearity, inits[:-1] if inits is not None else inits))
-        #self.pi = tscr(nn.Sequential(MlpModel(input_classes, hidden_sizes, output_size, nonlinearity, inits[0::2] if inits is not None else inits), nn.Softmax(-1)))
+        if shared_processor:
+            # Same mlp for all heads
+            self.model = tscr(nn.Sequential(body_mlp_class(input_classes), OptionCriticHead_SharedPreprocessor(
+                input_size=hidden_sizes[-1],
+                output_size=output_size,
+                option_size=option_size,
+                intra_option_policy='discrete',
+                use_interest=use_interest,
+                use_attention=use_attention,
+                use_diversity=use_diversity,
+                orthogonal_init=True,
+                orthogonal_init_base=inits[1],
+                orthogonal_init_pol=inits[2]
+            )))
+        else:
+            # Seperate mlp processors for each head (though if using diversity, q entropy and q share mlp
+            self.model = tscr(OptionCriticHead_IndependentPreprocessor(
+                input_size=input_classes,
+                input_module_class=body_mlp_class,
+                output_size=output_size,
+                option_size=option_size,
+                intra_option_policy='discrete',
+                use_interest=use_interest,
+                use_diversity=use_diversity,
+                use_attention=use_attention,
+                orthogonal_init=True,
+                orthogonal_init_base=inits[1],
+                orthogonal_init_pol=inits[2]
+            ))
 
     def forward(self, observation, prev_action, prev_reward):
         """ Compute per-option action probabilities, termination probabilities, value, option probabilities, and value entropy (if using)
@@ -378,14 +396,16 @@ class POMDPOcRnnModel(nn.Module):
                  input_classes: int,
                  output_size: int,
                  option_size: int,
-                 rnn_type: str = 'lstm',
+                 rnn_type: str = 'gru',
                  rnn_size: int = 128,
+                 rnn_placement: int = 1,
                  hidden_sizes: [List, Tuple, None] = None,
                  inits: [(float, float, float), None] = (np.sqrt(2), 1., 0.01),
-                 hidden_nonlinearity=torch.nn.Tanh,  # Module form.
-                 use_interest=False,  # IOC sigmoid interest functions
-                 use_diversity=False,  # TDEOC q entropy output
-                 use_attention=False,
+                 shared_processor: bool = False,
+                 hidden_nonlinearity=torch.nn.ReLU,  # Module form.
+                 use_interest: bool = False,  # IOC sigmoid interest functions
+                 use_diversity: bool = False,  # TDEOC q entropy output
+                 use_attention: bool = False,
                  ):
         super().__init__()
         self._obs_ndim = 0

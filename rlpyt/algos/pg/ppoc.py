@@ -26,10 +26,10 @@ class PPOC(OCAlgo):
     def __init__(
             self,
             discount=0.99,
-            learning_rate=0.001,
-            termination_lr=0.001,  # Termination learning rate
-            pi_omega_lr=0.001,  # policy over options learning rate
-            interest_lr=0.001,  # Learning rate for interest function
+            learning_rate=3e-4,
+            termination_lr=5e-7,  # Termination learning rate
+            pi_omega_lr=0.,  # policy over options learning rate
+            interest_lr=1e-3,  # Learning rate for interest function
             value_loss_coeff=0.5,
             termination_loss_coeff=1.,  # Coefficient for termination loss component
             entropy_loss_coeff=0.01,  # Entropy loss for low-level policy
@@ -123,7 +123,7 @@ class PPOC(OCAlgo):
                     *loss_inputs[T_idxs, B_idxs], rnn_state)
                 loss.backward()
                 grad_norm = torch.nn.utils.clip_grad_norm_(
-                    self.agent.parameters(), self.clip_grad_norm)
+                    self.agent.model.parameters(), self.clip_grad_norm)
                 self.optimizer.step()
                 # OptInfoOC = namedtuple("OptInfo", ["loss", "pi_loss", "q_loss", "beta_loss", "pi_omega_loss", "gradNorm", "entropy", "pi_omega_entropy"])
                 opt_info.loss.append(loss.item())

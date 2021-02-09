@@ -68,11 +68,11 @@ class DiscreteIntraOptionPolicy(Module):
                  ortho_init=False,
                  ortho_init_value=1e-2):
         super().__init__()
-        pi_w = layer_init(Linear(input_size, num_options * num_actions), ortho_init_value) if ortho_init else Linear(input_size, num_options * num_actions)
-        self.pi_w = Sequential(pi_w, View((num_options, num_actions)))
+        pi = layer_init(Linear(input_size, num_options * num_actions), ortho_init_value) if ortho_init else Linear(input_size, num_options * num_actions)
+        self.pi = Sequential(pi, View((num_options, num_actions)))
 
     def forward(self, x):
-        return torch.softmax(self.pi_w(x), dim=-1)
+        return torch.softmax(self.pi(x), dim=-1)
 
 class ContinuousIntraOptionPolicy(Module):
     """Option-Critic intra-option policy model for continuous action spaces
@@ -130,7 +130,7 @@ class OptionCriticHead_SharedPreprocessor(Module):
     Args:
         input_size (int): Number of inputs
         output_size (int): Number of outputs (per option)
-        num_options (int): Number of options (O)
+        option_size (int): Number of options (O)
         intra_option_policy (str): Type of intra-option policy (either discrete or continuous)
         intra_option_kwargs (dict, None): Extra args for intra-option policy (e.g., init_log_std and mu_nonlinearity for continuous)
         use_interest (bool): If true, apply sigmoid interest function to policy over options (pi_omega)
@@ -151,7 +151,7 @@ class OptionCriticHead_SharedPreprocessor(Module):
     def __init__(self,
                  input_size: int,
                  output_size: int,
-                 num_options: int,
+                 option_size: int,
                  intra_option_policy: str,
                  intra_option_kwargs: [dict, None] = None,
                  use_interest: bool = False,
@@ -169,19 +169,19 @@ class OptionCriticHead_SharedPreprocessor(Module):
         self.use_attention = use_attention
         self.NORM_EPS = NORM_EPS
         pi_class = DiscreteIntraOptionPolicy if intra_option_policy == 'discrete' else ContinuousIntraOptionPolicy
-        self.pi = pi_class(input_size, num_options, output_size, ortho_init=orthogonal_init, ortho_init_value=orthogonal_init_pol)
+        self.pi = pi_class(input_size, option_size, output_size, ortho_init=orthogonal_init, ortho_init_value=orthogonal_init_pol)
         if orthogonal_init:
-            self.beta = Sequential(layer_init(Linear(input_size, num_options), orthogonal_init_base), nn.Sigmoid())
-            self.q = layer_init(Linear(input_size, num_options), orthogonal_init_base)
-            self.q_ent = layer_init(Linear(input_size, num_options), orthogonal_init_base) if use_diversity else Dummy(num_options, out_value=0.)
-            self.pi_omega = Sequential(layer_init(Linear(input_size, num_options), orthogonal_init_pol), nn.Softmax(-1))
-            self.interest = Sequential(layer_init(Linear(input_size, num_options), orthogonal_init_base), nn.Sigmoid()) if use_interest else Dummy(num_options)
+            self.beta = Sequential(layer_init(Linear(input_size, option_size), orthogonal_init_base), nn.Sigmoid())
+            self.q = layer_init(Linear(input_size, option_size), orthogonal_init_base)
+            self.q_ent = layer_init(Linear(input_size, option_size), orthogonal_init_base) if use_diversity else Dummy(option_size, out_value=0.)
+            self.pi_omega = Sequential(layer_init(Linear(input_size, option_size), orthogonal_init_pol), nn.Softmax(-1))
+            self.interest = Sequential(layer_init(Linear(input_size, option_size), orthogonal_init_base), nn.Sigmoid()) if use_interest else Dummy(option_size)
         else:
-            self.beta = nn.Sequential(Linear(input_size, num_options), nn.Sigmoid())
-            self.q = Linear(input_size, num_options)
-            self.q_ent = Linear(input_size, num_options) if use_diversity else Dummy(num_options, out_value=0.)
-            self.pi_omega = Sequential(Linear(input_size, num_options), nn.Softmax(-1))
-            self.interest = Sequential(Linear(input_size, num_options), nn.Sigmoid()) if use_interest else Dummy(num_options)
+            self.beta = nn.Sequential(Linear(input_size, option_size), nn.Sigmoid())
+            self.q = Linear(input_size, option_size)
+            self.q_ent = Linear(input_size, option_size) if use_diversity else Dummy(option_size, out_value=0.)
+            self.pi_omega = Sequential(Linear(input_size, option_size), nn.Softmax(-1))
+            self.interest = Sequential(Linear(input_size, option_size), nn.Sigmoid()) if use_interest else Dummy(option_size)
 
     def forward(self, x):
         pi_I = self.pi_omega(x) * self.interest(x)  # Interest-parameterized pi_omega

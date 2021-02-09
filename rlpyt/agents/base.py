@@ -14,9 +14,22 @@ AgentInputs = namedarraytuple("AgentInputs",
     ["observation", "prev_action", "prev_reward"])
 AgentStep = namedarraytuple("AgentStep", ["action", "agent_info"])
 
-class MultipleOptimizerMixin:
+class OCOptimizerMixin:
+    """Mixin class for option critic methods
+
+    Option critic methods often have separate learning rates for different components. Specifically, main (3e-4),
+    termination (5e-7), interest functions (1e-3)
+
+    Returns parameters for (1) All components except termination, interest, and policy over options, (2) termination,
+    (3) policy over options (4) interest
+    """
     def parameters(self):
-        return {module_name: module.parameters() for module_name, module in self.model._modules.items() if module_name != 'obs_rms'}
+        beta_ps = [p for n, p in self.model.named_parameters() if 'beta' in n]  # Termination
+        interest_ps = [p for n, p in self.model.named_parameters() if 'interest' in n]  # Interest
+        pi_omega_ps = [p for n, p in self.model.named_parameters() if 'pi_omega' in n]  # policy over options
+        other_ps = [p for n, p in self.model.named_parameters() if ('beta' not in n and 'interest' not in n and 'pi_omega' not in n)]
+        param_dict = {'main': other_ps, 'beta': beta_ps, 'pi_omega': pi_omega_ps, 'interest': interest_ps}
+        return param_dict
 
 class BaseAgent:
     """

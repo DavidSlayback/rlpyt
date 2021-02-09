@@ -1,14 +1,14 @@
 import numpy as np
 import torch
 
-from rlpyt.agents.base import (AgentStep, BaseAgent, OCAgentMixin, RecurrentOCAgentMixin, AlternatingRecurrentOCAgentMixin, AlternatingOCAgentMixin)
+from rlpyt.agents.base import (AgentStep, BaseAgent, OCAgentMixin, RecurrentOCAgentMixin, AlternatingRecurrentOCAgentMixin, AlternatingOCAgentMixin, OCOptimizerMixin)
 from rlpyt.agents.pg.base import AgentInfoOC, AgentInfoOCRnn
 from rlpyt.distributions.gaussian import Gaussian, DistInfoStd
 from rlpyt.distributions.categorical import Categorical, DistInfo
 from rlpyt.utils.buffer import buffer_to, buffer_func, buffer_method
 from rlpyt.utils.tensor import select_at_indexes
 
-class CategoricalOCAgentBase(BaseAgent):
+class CategoricalOCAgentBase(OCOptimizerMixin, BaseAgent):
     def __call__(self, observation, prev_action, prev_reward, sampled_option, device="cpu"):
         prev_action = self.distribution.to_onehot(prev_action)
         model_inputs = buffer_to((observation, prev_action, prev_reward, sampled_option),
@@ -60,7 +60,7 @@ class AlternatingCategoricalOcAgent(AlternatingOCAgentMixin, CategoricalOCAgentB
     pass
 
 
-class RecurrentDiscreteOCAgentBase(BaseAgent):
+class RecurrentCategoricalOCAgentBase(OCOptimizerMixin, BaseAgent):
     def __call__(self, observation, prev_action, prev_reward, sampled_option, init_rnn_state, device="cpu"):
         prev_action = self.distribution.to_onehot(prev_action)
         model_inputs = buffer_to((observation, prev_action, prev_reward, init_rnn_state, sampled_option),
@@ -111,13 +111,13 @@ class RecurrentDiscreteOCAgentBase(BaseAgent):
         value = q_prev_o * (1 - beta_prev_o) + v * beta_prev_o
         return value.to(device)
 
-class RecurrentCategoricalOcAgent(RecurrentOCAgentMixin, RecurrentDiscreteOCAgentBase):
+class RecurrentCategoricalOcAgent(RecurrentOCAgentMixin, RecurrentCategoricalOCAgentBase):
     pass
 
-class AlternatingRecurrentCategoricalOcAgent(AlternatingRecurrentOCAgentMixin, RecurrentDiscreteOCAgentBase):
+class AlternatingRecurrentCategoricalOcAgent(AlternatingRecurrentOCAgentMixin, RecurrentCategoricalOCAgentBase):
     pass
 
-class GaussianOCAgentBase(BaseAgent):
+class GaussianOCAgentBase(OCOptimizerMixin, BaseAgent):
     """
     Agent for option-critic algorithm using Gaussian action distribution.
     """
@@ -199,7 +199,7 @@ class AlternatingGaussianOCAgent(AlternatingOCAgentMixin, GaussianOCAgentBase):
     pass
 
 
-class RecurrentGaussianOCAgentBase(BaseAgent):
+class RecurrentGaussianOCAgentBase(OCOptimizerMixin, BaseAgent):
 
     def __call__(self, observation, prev_action, prev_reward, sampled_option, init_rnn_state, device="cpu"):
         """Performs forward pass on training data, for algorithm (requires

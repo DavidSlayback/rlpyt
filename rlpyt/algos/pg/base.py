@@ -102,8 +102,15 @@ class OCAlgo(PolicyGradientAlgo):
         Build the torch optimizer and store other input attributes. Params
         ``batch_spec`` and ``examples`` are unused.
         """
-        self.optimizer = self.OptimCls(agent.parameters(),
-            lr=self.learning_rate, **self.optim_kwargs)
+        pdict = agent.parameters()  # Returns main parameters, termination parameters, policy over options parameters, interest parameters
+        tlr = self.termination_lr or self.learning_rate
+        olr = self.pi_omega_lr or self.learning_rate
+        ilr = self.interest_lr or self.learning_rate
+        # If provided learning rate is 0., use main learning rate, drain other parameters
+        optim_dict_list = [{'params': pdict['main']}, {'params': pdict['beta'], 'lr': tlr}]
+        optim_dict_list += [] if not pdict['pi_omega'] else [{'params': pdict['pi_omega'], 'lr': olr}]
+        optim_dict_list += [] if not pdict['interest'] else [{'params': pdict['interest'], 'lr': ilr}]
+        self.optimizer = self.OptimCls(optim_dict_list, lr=self.learning_rate, **self.optim_kwargs)
         if self.initial_optim_state_dict is not None:
             self.optimizer.load_state_dict(self.initial_optim_state_dict)
         self.agent = agent
