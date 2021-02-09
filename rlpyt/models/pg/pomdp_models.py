@@ -378,7 +378,7 @@ class POMDPOcRnnShared0Model(nn.Module):
         rnn_class = get_rnn_class(rnn_type, layer_norm)
         self.rnn = rnn_class(input_classes + output_size + 1, rnn_size)  # Concat action, reward
         self.body = MlpModel(rnn_size, hidden_sizes, None, nn.ReLU, None)
-        self.oc = OptionCriticHead_SharedPreprocessor(
+        self.oc = tscr(OptionCriticHead_SharedPreprocessor(
             input_size=self.body.output_size,
             output_size=output_size,
             option_size=option_size,
@@ -386,10 +386,11 @@ class POMDPOcRnnShared0Model(nn.Module):
             use_interest=use_interest,
             use_diversity=use_diversity,
             use_attention=use_attention,
-            baselines_init=baselines_init)
+            baselines_init=baselines_init))
         if baselines_init:
             self.rnn.apply(partial(apply_init, gain=O_INIT_VALUES['lstm']))
             self.body.apply(apply_init)
+        self.body = tscr(self.body)
 
     def forward(self, observation, prev_action, prev_reward, init_rnn_state):
         lead_dim, T, B, _ = infer_leading_dims(observation, self._obs_ndim)
@@ -429,7 +430,7 @@ class POMDPOcRnnShared1Model(nn.Module):
         rnn_class = get_rnn_class(rnn_type, layer_norm)
         self.body = MlpModel(input_classes, hidden_sizes, None, nn.ReLU, None)
         self.rnn = rnn_class(self.body.output_size + output_size + 1, rnn_size)  # Concat action, reward
-        self.oc = OptionCriticHead_SharedPreprocessor(
+        self.oc = tscr(OptionCriticHead_SharedPreprocessor(
             input_size=rnn_size,
             output_size=output_size,
             option_size=option_size,
@@ -437,10 +438,11 @@ class POMDPOcRnnShared1Model(nn.Module):
             use_interest=use_interest,
             use_diversity=use_diversity,
             use_attention=use_attention,
-            baselines_init=baselines_init)
+            baselines_init=baselines_init))
         if baselines_init:
             self.rnn.apply(partial(apply_init, gain=O_INIT_VALUES['lstm']))
             self.body.apply(apply_init)
+        self.body = tscr(self.body)
 
     def forward(self, observation, prev_action, prev_reward, init_rnn_state):
         lead_dim, T, B, _ = infer_leading_dims(observation, self._obs_ndim)
@@ -480,7 +482,7 @@ class POMDPOcRnnUnshared0Model(nn.Module):
         rnn_class = get_rnn_class(rnn_type, layer_norm)
         self.rnn = rnn_class(input_classes + output_size + 1, rnn_size)  # Concat action, reward
         body_mlp_class = partial(MlpModel, hidden_sizes=hidden_sizes, output_size=None, nonlinearity=nn.ReLU, inits=None)
-        self.oc = OptionCriticHead_IndependentPreprocessor(
+        self.oc = tscr(OptionCriticHead_IndependentPreprocessor(
             input_size=rnn_size,
             input_module_class=body_mlp_class,
             output_size=output_size,
@@ -489,7 +491,7 @@ class POMDPOcRnnUnshared0Model(nn.Module):
             use_interest=use_interest,
             use_diversity=use_diversity,
             use_attention=use_attention,
-            baselines_init=baselines_init)
+            baselines_init=baselines_init))
         if baselines_init:
             self.rnn.apply(partial(apply_init, gain=O_INIT_VALUES['lstm']))
 

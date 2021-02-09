@@ -34,7 +34,7 @@ def build_and_train(slot_affinity_code, log_dir, run_ID, config_key):
     t_env = pomdp_interface(**config["env"])
     config["algo"]["discount"] = t_env.discount
 
-    sampler = AlternatingSampler(
+    sampler = GpuSampler(
         EnvCls=pomdp_interface,
         env_kwargs=config["env"],
         **config["sampler"]

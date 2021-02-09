@@ -308,7 +308,8 @@ class OptionCriticHead_IndependentPreprocessorWithRNN(nn.Module):
         if baselines_init:
             lstm_init = partial(apply_init, gain=O_INIT_VALUES['lstm'])
             self.pi_rnn.apply(lstm_init); self.pi_omega_rnn.apply(lstm_init)
-            self.q_rnn.apply(lstm_init); self.int_rnn.apply(lstm_init); self.beta_rnn.apply(lstm_init)
+            self.q_rnn.apply(lstm_init); self.beta_rnn.apply(lstm_init)
+            if use_interest: self.int_rnn.apply(lstm_init)
         self.pi = Sequential(nn.ReLU(), pi_class(rnn_size, option_size, output_size, ortho_init=baselines_init, **intra_option_kwargs))
         self.beta = Sequential(nn.ReLU(), Linear(rnn_size, option_size), nn.Sigmoid())
         self.q = Sequential(nn.ReLU(), Linear(rnn_size, option_size))
@@ -347,7 +348,7 @@ class OptionCriticHead_IndependentPreprocessorWithRNN(nn.Module):
             pi_omega.add_(self.NORM_EPS)  # Add eps to avoid instability
             pi_omega.div_(pi_omega.sum(-1, keepdim=True))  # Normalize so probabilities add to 1
         else:
-            ni_s = pio_s  # REturn someone else's state, don't bother making one
+            ni_s = npio_s  # REturn someone else's state, don't bother making one
         q_ent = self.q_ent(q_rnn_out.view(T*B, -1))  # Entropy uses q's processor. Will be appropriate size otherwise
         return pi, beta, q, pi_omega, q_ent, (np_s, nb_s, nq_s, npio_s, ni_s)
 
