@@ -13,8 +13,8 @@ from rlpyt.utils.tensor import infer_leading_dims, restore_leading_dims
 from rlpyt.utils.collections import namedarraytuple, namedtuple
 RnnState = namedarraytuple("RnnState", ["h", "c"])  # For downstream namedarraytuples to work
 DualRnnState = namedarraytuple("DualRnnState", ["pi", "v"])
-OCMultiRnnState = namedarraytuple("IocRnnState", ["pi", "beta", "q", "pi_omega", "I"])
-OCMultiRnnState_NoInterest = namedarraytuple("OcRnnState", ["pi", "beta", "q", "pi_omega"])
+IocRnnState = namedarraytuple("IocRnnState", ["pi", "beta", "q", "pi_omega", "interest"])
+OcRnnState = namedarraytuple("OcRnnState", ["pi", "beta", "q", "pi_omega"])
 # GruState = namedarraytuple("GruState", ["h"])
 
 class ScriptedRNN(nn.Module):
@@ -562,9 +562,9 @@ class POMDPOcRnnUnshared1Model(nn.Module):
             self.oc(o, prev_action, prev_reward, T, B, (init_rnn_pi, init_rnn_beta, init_rnn_q, init_rnn_pi_omega, init_rnn_I))
         pi, beta, q, pi_omega, q_ent = restore_leading_dims((pi, beta, q, pi_omega, q_ent), lead_dim, T, B)
         if self.rnn_is_lstm:
-            next_rnn_state = DualRnnState(RnnState(*nrs_pi), RnnState(*nrs_beta), RnnState(*nrs_q), RnnState(*nrs_pi_omega), RnnState(*nrs_I))
+            next_rnn_state = IocRnnState(pi=RnnState(*nrs_pi), beta=RnnState(*nrs_beta), q=RnnState(*nrs_q), pi_omega=RnnState(*nrs_pi_omega), interest=RnnState(*nrs_I))
         else:
-            next_rnn_state = OCMultiRnnState(nrs_pi, nrs_beta, nrs_q, nrs_pi_omega, nrs_I)
+            next_rnn_state = IocRnnState(pi=nrs_pi, beta=nrs_beta, q=nrs_q, pi_omega=nrs_pi_omega, interest=nrs_I)
         return pi, beta, q, pi_omega, next_rnn_state
 
 class POMDPOcRnnModel(nn.Module):

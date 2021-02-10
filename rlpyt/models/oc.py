@@ -343,7 +343,7 @@ class OptionCriticHead_IndependentPreprocessorWithRNN(nn.Module):
         if self.use_interest:
             i_rnn_in = torch.cat([I_f.view(T, B, -1), rnn_extra], dim=2)
             i_rnn_out, ni_s = self.int_rnn(i_rnn_in, i_s)
-            I = self.interest(i_rnn_out)
+            I = self.interest(i_rnn_out.view(T*B,-1))
             pi_omega = pi_omega * I
             pi_omega.add_(self.NORM_EPS)  # Add eps to avoid instability
             pi_omega.div_(pi_omega.sum(-1, keepdim=True))  # Normalize so probabilities add to 1
