@@ -42,23 +42,23 @@ def build_and_train(env_id="POMDP-hallway-episodic-v0", run_ID=0, cuda_idx=None,
     # Model kwargs
     # model_kwargs = dict()
     # model_kwargs = dict(hidden_sizes=[64, 64], shared_processor=False)
-    # model_kwargs = dict(hidden_sizes=[64, 64], rnn_type='gru', rnn_size=256, rnn_placement=1, shared_processor=False, layer_norm=True)
+    model_kwargs = dict(hidden_sizes=[64, 64], rnn_type='gru', rnn_size=256, rnn_placement=1, shared_processor=False, layer_norm=True, prev_action=3, prev_reward=3)
     # model_kwargs = dict(hidden_sizes=[64, 64], option_size=4, shared_processor=False, use_interest=False, use_diversity=False, use_attention=False)
-    model_kwargs = dict(hidden_sizes=[64, 64], option_size=4, use_interest=True, use_diversity=False,
-                        use_attention=False, rnn_type='gru', rnn_size=256, rnn_placement=1, shared_processor=False, layer_norm=True)
+    # model_kwargs = dict(hidden_sizes=[64, 64], option_size=4, use_interest=True, use_diversity=False,
+    #                     use_attention=False, rnn_type='gru', rnn_size=256, rnn_placement=1, shared_processor=False, layer_norm=True)
 
     # Samplers
-    sampler = GpuSampler(
-        EnvCls=EnvCls,
-        env_kwargs=env_args,
-        eval_env_kwargs=env_args,
-        batch_T=20,  # One time-step per sampler iteration.
-        batch_B=30,  # One environment (i.e. sampler Batch dimension).
-        max_decorrelation_steps=0,
-        eval_n_envs=5,
-        eval_max_steps=int(25e3),
-        eval_max_trajectories=30
-    )
+    # sampler = GpuSampler(
+    #     EnvCls=EnvCls,
+    #     env_kwargs=env_args,
+    #     eval_env_kwargs=env_args,
+    #     batch_T=20,  # One time-step per sampler iteration.
+    #     batch_B=30,  # One environment (i.e. sampler Batch dimension).
+    #     max_decorrelation_steps=0,
+    #     eval_n_envs=5,
+    #     eval_max_steps=int(25e3),
+    #     eval_max_trajectories=30
+    # )
     # sampler = AlternatingSampler(
     #     EnvCls=EnvCls,
     #     env_kwargs=env_args,
@@ -71,29 +71,29 @@ def build_and_train(env_id="POMDP-hallway-episodic-v0", run_ID=0, cuda_idx=None,
     #     eval_max_trajectories=30
     # )
     #
-    # sampler = SerialSampler(
-    #     EnvCls=EnvCls,
-    #     env_kwargs=env_args,
-    #     eval_env_kwargs=env_args,
-    #     batch_T=20,  # One time-step per sampler iteration.
-    #     batch_B=30,  # One environment (i.e. sampler Batch dimension).
-    #     max_decorrelation_steps=0,
-    #     # eval_n_envs=2,
-    #     # eval_max_steps=int(51e2),
-    #     # eval_max_trajectories=5,
-    # )
+    sampler = SerialSampler(
+        EnvCls=EnvCls,
+        env_kwargs=env_args,
+        eval_env_kwargs=env_args,
+        batch_T=20,  # One time-step per sampler iteration.
+        batch_B=30,  # One environment (i.e. sampler Batch dimension).
+        max_decorrelation_steps=0,
+        # eval_n_envs=2,
+        # eval_max_steps=int(51e2),
+        # eval_max_trajectories=5,
+    )
 
     # Algos (swapping out discount)
-    # algo = A2C(discount=gamma, learning_rate=lr, clip_grad_norm=2.)
-    algo = A2OC(discount=gamma, learning_rate=lr, clip_grad_norm=2.)
+    algo = A2C(discount=gamma, learning_rate=lr, clip_grad_norm=2.)
+    # algo = A2OC(discount=gamma, learning_rate=lr, clip_grad_norm=2.)
     # algo = PPO(discount=gamma, learning_rate=lr, clip_grad_norm=2.)
     # algo = PPOC(discount=gamma, learning_rate=lr, clip_grad_norm=2.)
 
     # Agents
     # agent = PomdpFfAgent(model_kwargs=model_kwargs)
-    # agent = PomdpRnnAgent(model_kwargs=model_kwargs)
+    agent = PomdpRnnAgent(model_kwargs=model_kwargs)
     # agent = PomdpOcFfAgent(model_kwargs=model_kwargs)
-    agent = PomdpOcRnnAgent(model_kwargs=model_kwargs)
+    # agent = PomdpOcRnnAgent(model_kwargs=model_kwargs)
     # agent = AlternatingPomdpRnnAgent(model_kwargs=model_kwargs)
     # agent = AlternatingPomdpOcRnnAgent(model_kwargs=model_kwargs)
     runner = MinibatchRl(

@@ -65,7 +65,7 @@ class POMDPFfModel(nn.Module):
 
         """
         # Infer (presence of) leading dimensions: [T,B], [B], or [].
-        lead_dim, T, B, _ = infer_leading_dims(observation, self._obs_dim)
+        lead_dim, T, B, _ = infer_leading_dims(observation, self._obs_ndim)
         obs_flat = self.preprocessor(observation.view(T * B))  # Onehot
         pi, v = self.pi(obs_flat), self.v(obs_flat).squeeze(-1)
         pi, v = restore_leading_dims((pi, v), lead_dim, T, B)
@@ -81,14 +81,19 @@ class POMDPRnnShared0Rnn(nn.Module):
                  rnn_size: int = 256,
                  hidden_sizes: [List, Tuple] = None,
                  baselines_init: bool = True,
-                 layer_norm: bool = False
+                 layer_norm: bool = False,
+                 prev_action: int = 2,
+                 prev_reward: int = 2,
                  ):
         super().__init__()
         self._obs_dim = 0
         self.rnn_is_lstm = rnn_type != 'gru'
         self.preprocessor = tscr(OneHotLayer(input_classes))
         rnn_class = get_rnn_class(rnn_type, layer_norm)
-        self.rnn = rnn_class(input_classes + output_size + 1, rnn_size)  # Concat action, reward
+        rnn_input_size = input_classes
+        if prev_action: rnn_input_size += output_size  # Use previous action as input
+        if prev_reward: rnn_input_size += 1  # Use previous reward as input
+        self.rnn = rnn_class(rnn_input_size, rnn_size)  # Concat action, reward
         self.body = MlpModel(rnn_size, hidden_sizes, None, nn.ReLU, None)
         self.pi = nn.Sequential(nn.Linear(self.body.output_size, output_size), nn.Softmax(-1))
         self.v = nn.Linear(self.body.output_size, 1)
@@ -97,16 +102,15 @@ class POMDPRnnShared0Rnn(nn.Module):
             self.pi.apply(partial(apply_init, gain=O_INIT_VALUES['pi']))
             self.v.apply(partial(apply_init, gain=O_INIT_VALUES['v']))
         self.body, self.pi, self.v = tscr(self.body), tscr(self.pi), tscr(self.v)
+        self.p_a = prev_action > 0
+        self.p_r = prev_reward > 0
 
     def forward(self, observation, prev_action, prev_reward, init_rnn_state):
         lead_dim, T, B, _ = infer_leading_dims(observation, self._obs_dim)
         if init_rnn_state is not None and self.rnn_is_lstm: init_rnn_state = tuple(init_rnn_state)  # namedarraytuple -> tuple (h, c)
         oh = self.preprocessor(observation)  # Leave in TxB format for lstm
-        rnn_input = torch.cat([
-            oh.view(T,B,-1),
-            prev_action.view(T, B, -1),  # Assumed onehot.
-            prev_reward.view(T, B, 1),
-            ], dim=2)
+        inp_list = [oh.view(T,B,-1)] + ([prev_action.view(T, B, -1)] if self.p_a else []) + ([prev_reward.view(T, B, 1)] if self.p_r else [])
+        rnn_input = torch.cat(inp_list, dim=2)
         rnn_out, next_rnn_state = self.rnn(rnn_input, init_rnn_state)
         rnn_out = rnn_out.view(T*B, -1)
         rnn_out = self.body(rnn_out)
@@ -123,7 +127,9 @@ class POMDPRnnShared1Rnn(nn.Module):
                  rnn_size: int = 256,
                  hidden_sizes: [List, Tuple] = None,
                  baselines_init: bool = True,
-                 layer_norm: bool = False
+                 layer_norm: bool = False,
+                 prev_action: int = 2,
+                 prev_reward: int = 2,
                  ):
         super().__init__()
         self._obs_dim = 0
@@ -131,7 +137,10 @@ class POMDPRnnShared1Rnn(nn.Module):
         self.preprocessor = tscr(OneHotLayer(input_classes))
         rnn_class = get_rnn_class(rnn_type, layer_norm)
         self.body = MlpModel(input_classes, hidden_sizes, None, nn.ReLU, None)
-        self.rnn = rnn_class(self.body.output_size + output_size + 1, rnn_size)  # Concat action, reward
+        rnn_input_size = self.body.output_size
+        if prev_action: rnn_input_size += output_size  # Use previous action as input
+        if prev_reward: rnn_input_size += 1  # Use previous reward as input
+        self.rnn = rnn_class(rnn_input_size, rnn_size)  # Concat action, reward
         self.pi = nn.Sequential(nn.ReLU(), nn.Linear(rnn_size, output_size), nn.Softmax(-1))
         self.v = nn.Sequential(nn.ReLU(), nn.Linear(rnn_size, 1))
         if baselines_init:
@@ -139,17 +148,16 @@ class POMDPRnnShared1Rnn(nn.Module):
             self.pi.apply(partial(apply_init, gain=O_INIT_VALUES['pi']))
             self.v.apply(partial(apply_init, gain=O_INIT_VALUES['v']))
         self.body, self.pi, self.v = tscr(self.body), tscr(self.pi), tscr(self.v)
+        self.p_a = prev_action > 0
+        self.p_r = prev_reward > 0
 
     def forward(self, observation, prev_action, prev_reward, init_rnn_state):
         lead_dim, T, B, _ = infer_leading_dims(observation, self._obs_dim)
         if init_rnn_state is not None and self.rnn_is_lstm: init_rnn_state = tuple(init_rnn_state)  # namedarraytuple -> tuple (h, c)
         oh = self.preprocessor(observation)  # Leave in TxB format for lstm
         features = self.body(oh)
-        rnn_input = torch.cat([
-            features.view(T,B,-1),
-            prev_action.view(T, B, -1),  # Assumed onehot.
-            prev_reward.view(T, B, 1),
-            ], dim=2)
+        inp_list = [features.view(T,B,-1)] + ([prev_action.view(T, B, -1)] if self.p_a else []) + ([prev_reward.view(T, B, 1)] if self.p_r else [])
+        rnn_input = torch.cat(inp_list, dim=2)
         rnn_out, next_rnn_state = self.rnn(rnn_input, init_rnn_state)
         rnn_out = rnn_out.view(T*B, -1)
         pi, v = self.pi(rnn_out), self.v(rnn_out).squeeze(-1)
@@ -165,14 +173,19 @@ class POMDPRnnUnshared0Rnn(nn.Module):
                  rnn_size: int = 256,
                  hidden_sizes: [List, Tuple] = None,
                  baselines_init: bool = True,
-                 layer_norm: bool = False
+                 layer_norm: bool = False,
+                 prev_action: int = 2,
+                 prev_reward: int = 2,
                  ):
         super().__init__()
         self._obs_dim = 0
         self.rnn_is_lstm = rnn_type != 'gru'
         self.preprocessor = tscr(OneHotLayer(input_classes))
         rnn_class = get_rnn_class(rnn_type, layer_norm)
-        self.rnn = rnn_class(input_classes + output_size + 1, rnn_size)  # Concat action, reward
+        rnn_input_size = input_classes
+        if prev_action: rnn_input_size += output_size  # Use previous action as input
+        if prev_reward: rnn_input_size += 1  # Use previous reward as input
+        self.rnn = rnn_class(rnn_input_size, rnn_size)  # Concat action, reward
         pi_inits = (O_INIT_VALUES['base'], O_INIT_VALUES['pi']) if baselines_init else None
         v_inits = (O_INIT_VALUES['base'], O_INIT_VALUES['v']) if baselines_init else None
         self.pi = nn.Sequential(MlpModel(rnn_size, hidden_sizes, output_size, nn.ReLU, pi_inits), nn.Softmax(-1))
@@ -180,16 +193,15 @@ class POMDPRnnUnshared0Rnn(nn.Module):
         if baselines_init:
             self.rnn.apply(apply_init)
         self.pi, self.v = tscr(self.pi), tscr(self.v)
+        self.p_a = prev_action > 0
+        self.p_r = prev_reward > 0
 
     def forward(self, observation, prev_action, prev_reward, init_rnn_state):
         lead_dim, T, B, _ = infer_leading_dims(observation, self._obs_dim)
         if init_rnn_state is not None and self.rnn_is_lstm: init_rnn_state = tuple(init_rnn_state)  # namedarraytuple -> tuple (h, c)
         oh = self.preprocessor(observation)  # Leave in TxB format for lstm
-        rnn_input = torch.cat([
-            oh.view(T,B,-1),
-            prev_action.view(T, B, -1),  # Assumed onehot.
-            prev_reward.view(T, B, 1),
-            ], dim=2)
+        inp_list = [oh.view(T,B,-1)] + ([prev_action.view(T, B, -1)] if self.p_a else []) + ([prev_reward.view(T, B, 1)] if self.p_r else [])
+        rnn_input = torch.cat(inp_list, dim=2)
         rnn_out, next_rnn_state = self.rnn(rnn_input, init_rnn_state)
         rnn_out = rnn_out.view(T*B, -1)
         pi, v = self.pi(rnn_out), self.v(rnn_out).squeeze(-1)
@@ -209,7 +221,9 @@ class POMDPRnnUnshared1Rnn(nn.Module):
                  rnn_size: int = 256,
                  hidden_sizes: [List, Tuple] = None,
                  baselines_init: bool = True,
-                 layer_norm: bool = False
+                 layer_norm: bool = False,
+                 prev_action: int = 3,
+                 prev_reward: int = 3,
                  ):
         super().__init__()
         self._obs_dim = 0
@@ -218,8 +232,10 @@ class POMDPRnnUnshared1Rnn(nn.Module):
         rnn_class = get_rnn_class(rnn_type, layer_norm)
         self.body_pi = MlpModel(input_classes, hidden_sizes, None, nn.ReLU, None)
         self.body_v = MlpModel(input_classes, hidden_sizes, None, nn.ReLU, None)
-        self.rnn_pi = rnn_class(self.body_pi.output_size + output_size + 1, rnn_size)  # Concat action, reward
-        self.rnn_v = rnn_class(self.body_v.output_size + output_size + 1, rnn_size)
+        rnn_input_size_pi = self.body_pi.output_size + (prev_action in [1,3]) * output_size + (prev_reward in [1,3])
+        rnn_input_size_v = self.body_v.output_size + (prev_action in [2,3]) * output_size + (prev_reward in [2,3])
+        self.rnn_pi = rnn_class(rnn_input_size_pi, rnn_size)  # Concat action, reward
+        self.rnn_v = rnn_class(rnn_input_size_v, rnn_size)
         self.pi = nn.Sequential(nn.ReLU(), nn.Linear(rnn_size, output_size), nn.Softmax(-1))  # Need to activate after lstm
         self.v = nn.Sequential(nn.ReLU(), nn.Linear(rnn_size, 1))
         if baselines_init:
@@ -228,6 +244,8 @@ class POMDPRnnUnshared1Rnn(nn.Module):
             self.pi.apply(partial(apply_init, O_INIT_VALUES['pi']))
             self.v.apply(partial(apply_init, O_INIT_VALUES['v']))
         self.body_pi, self.body_v, self.pi, self.v = tscr(self.body_pi), tscr(self.body_v), tscr(self.pi), tscr(self.v)
+        self.p_a = prev_action
+        self.p_r = prev_reward
 
     def forward(self, observation, prev_action, prev_reward, init_rnn_state):
         lead_dim, T, B, _ = infer_leading_dims(observation, self._obs_dim)
@@ -241,10 +259,13 @@ class POMDPRnnUnshared1Rnn(nn.Module):
             init_rnn_pi, init_rnn_v = None, None
         o_flat = self.preprocessor(observation.view(T*B))
         b_pi, b_v = self.body_pi(o_flat), self.body_v(o_flat)
-        rnn_input_pi = torch.cat([b_pi.view(T,B,-1),prev_action.view(T, B, -1),prev_reward.view(T, B, 1),], dim=2)
-        rnn_input_v = torch.cat([b_v.view(T, B, -1), prev_action.view(T, B, -1), prev_reward.view(T, B, 1), ], dim=2)
+        p_a, p_r = prev_action.view(T, B, -1), prev_reward.view(T, B, 1)
+        pi_inp_list = [b_pi.view(T,B,-1)] + ([p_a] if self.p_a in [1,3] else []) + ([p_r] if self.p_r in [1,3] else [])
+        v_inp_list = [b_pi.view(T, B, -1)] + ([p_a] if self.p_a in [2,3] else []) + ([p_r] if self.p_r in [2, 3] else [])
+        rnn_input_pi = torch.cat(pi_inp_list, dim=2)
+        rnn_input_v = torch.cat(v_inp_list, dim=2)
         rnn_pi, next_rnn_state_pi = self.rnn_pi(rnn_input_pi, init_rnn_pi)
-        rnn_v, next_rnn_state_v = self.rnn_pi(rnn_input_v, init_rnn_v)
+        rnn_v, next_rnn_state_v = self.rnn_v(rnn_input_v, init_rnn_v)
         rnn_pi = rnn_pi.view(T*B, -1); rnn_v = rnn_v.view(T*B, -1)
         pi, v = self.pi(rnn_pi), self.v(rnn_v).squeeze(-1)
         pi, v = restore_leading_dims((pi, v), lead_dim, T, B)
@@ -268,6 +289,8 @@ class POMDPRnnModel(nn.Module):
         shared_processor (bool): Whether to share model processor (MLP) between heads. Onehot is shared anyway
         rnn_placement (int): 0 for right after one-hot, 1 for right after MLP
         layer_norm (bool): True for layer-normalized GRU/LSTM
+        prev_action (int): Flag to set which rnns get previous action. 0 means neither, 1 means pi, 2 means v, 3 means pi and v
+        prev_reward (int): Flag to set which rnns get previous reward. 0 means neither, 1 means pi, 2 means v, 3 means pi and v
     """
     def __init__(self,
                  input_classes: int,
@@ -278,13 +301,15 @@ class POMDPRnnModel(nn.Module):
                  inits: [(float, float, float), None] = (np.sqrt(2), 1., 0.01),
                  shared_processor: bool = False,
                  rnn_placement: int = 1,
-                 layer_norm: bool = False
+                 layer_norm: bool = False,
+                 prev_action: int = 2,
+                 prev_reward: int = 2,
                  ):
         super().__init__()
-        if shared_processor and rnn_placement == 0: self.model = POMDPRnnShared0Rnn(input_classes, output_size, rnn_type, rnn_size, hidden_sizes, inits is not None, layer_norm)
-        elif shared_processor and rnn_placement == 1: self.model = POMDPRnnShared1Rnn(input_classes, output_size, rnn_type, rnn_size, hidden_sizes, inits is not None, layer_norm)
-        elif not shared_processor and rnn_placement == 0: self.model = POMDPRnnUnshared0Rnn(input_classes, output_size, rnn_type, rnn_size, hidden_sizes, inits is not None, layer_norm)
-        elif not shared_processor and rnn_placement == 1: self.model = POMDPRnnUnshared1Rnn(input_classes, output_size, rnn_type, rnn_size, hidden_sizes, inits is not None, layer_norm)
+        if shared_processor and rnn_placement == 0: self.model = POMDPRnnShared0Rnn(input_classes, output_size, rnn_type, rnn_size, hidden_sizes, inits is not None, layer_norm, prev_action, prev_reward)
+        elif shared_processor and rnn_placement == 1: self.model = POMDPRnnShared1Rnn(input_classes, output_size, rnn_type, rnn_size, hidden_sizes, inits is not None, layer_norm, prev_action, prev_reward)
+        elif not shared_processor and rnn_placement == 0: self.model = POMDPRnnUnshared0Rnn(input_classes, output_size, rnn_type, rnn_size, hidden_sizes, inits is not None, layer_norm, prev_action, prev_reward)
+        elif not shared_processor and rnn_placement == 1: self.model = POMDPRnnUnshared1Rnn(input_classes, output_size, rnn_type, rnn_size, hidden_sizes, inits is not None, layer_norm, prev_action, prev_reward)
 
     def forward(self, observation, prev_action, prev_reward, init_rnn_state):
         return self.model(observation, prev_action, prev_reward, init_rnn_state)
@@ -370,13 +395,19 @@ class POMDPOcRnnShared0Model(nn.Module):
                  layer_norm: bool = False,
                  use_interest: bool = False,  # IOC sigmoid interest functions
                  use_diversity: bool = False,  # TDEOC q entropy output
-                 use_attention: bool = False):
+                 use_attention: bool = False,
+                 prev_action: np.ndarray = np.ones(5, dtype=bool),
+                 prev_reward: np.ndarray = np.ones(5, dtype=bool),
+                 prev_option: np.ndarray = np.zeros(5, dtype=bool)
+                 ):
         super().__init__()
         self._obs_ndim = 0
         self.rnn_is_lstm = rnn_type != 'gru'
         self.preprocessor = tscr(OneHotLayer(input_classes))
         rnn_class = get_rnn_class(rnn_type, layer_norm)
-        self.rnn = rnn_class(input_classes + output_size + 1, rnn_size)  # Concat action, reward
+        self.p_a, self.p_o, self.p_r = prev_action.any().item(), prev_option.any().item(), prev_reward.any().item()
+        rnn_input_size = input_classes + (output_size * self.p_a) + (option_size * self.p_o) + self.p_r
+        self.rnn = rnn_class(rnn_input_size, rnn_size)  # Concat action, reward
         self.body = MlpModel(rnn_size, hidden_sizes, None, nn.ReLU, None)
         self.oc = tscr(OptionCriticHead_SharedPreprocessor(
             input_size=self.body.output_size,
@@ -422,14 +453,20 @@ class POMDPOcRnnShared1Model(nn.Module):
                  layer_norm: bool = False,
                  use_interest: bool = False,  # IOC sigmoid interest functions
                  use_diversity: bool = False,  # TDEOC q entropy output
-                 use_attention: bool = False):
+                 use_attention: bool = False,
+                 prev_action: np.ndarray = np.ones(5, dtype=bool),
+                 prev_reward: np.ndarray = np.ones(5, dtype=bool),
+                 prev_option: np.ndarray = np.zeros(5, dtype=bool)
+                 ):
         super().__init__()
         self._obs_ndim = 0
         self.rnn_is_lstm = rnn_type != 'gru'
         self.preprocessor = tscr(OneHotLayer(input_classes))
         rnn_class = get_rnn_class(rnn_type, layer_norm)
         self.body = MlpModel(input_classes, hidden_sizes, None, nn.ReLU, None)
-        self.rnn = rnn_class(self.body.output_size + output_size + 1, rnn_size)  # Concat action, reward
+        self.p_a, self.p_o, self.p_r = prev_action.any().item(), prev_option.any().item(), prev_reward.any().item()
+        rnn_input_size = self.body.output_size + (output_size * prev_action.any().item()) + (option_size * prev_option.any().item()) + prev_reward.any().item()
+        self.rnn = rnn_class(rnn_input_size, rnn_size)  # Concat action, reward
         self.oc = tscr(OptionCriticHead_SharedPreprocessor(
             input_size=rnn_size,
             output_size=output_size,
@@ -474,13 +511,19 @@ class POMDPOcRnnUnshared0Model(nn.Module):
                  layer_norm: bool = False,
                  use_interest: bool = False,  # IOC sigmoid interest functions
                  use_diversity: bool = False,  # TDEOC q entropy output
-                 use_attention: bool = False):
+                 use_attention: bool = False,
+                 prev_action: np.ndarray = np.ones(5, dtype=bool),
+                 prev_reward: np.ndarray = np.ones(5, dtype=bool),
+                 prev_option: np.ndarray = np.zeros(5, dtype=bool)
+                 ):
         super().__init__()
         self._obs_ndim = 0
         self.rnn_is_lstm = rnn_type != 'gru'
         self.preprocessor = tscr(OneHotLayer(input_classes))
         rnn_class = get_rnn_class(rnn_type, layer_norm)
-        self.rnn = rnn_class(input_classes + output_size + 1, rnn_size)  # Concat action, reward
+        self.p_a, self.p_o, self.p_r = prev_action.any().item(), prev_option.any().item(), prev_reward.any().item()
+        rnn_input_size = input_classes + (output_size * prev_action.any().item()) + (option_size * prev_option.any().item()) + prev_reward.any().item()
+        self.rnn = rnn_class(rnn_input_size, rnn_size)  # Concat action, reward
         body_mlp_class = partial(MlpModel, hidden_sizes=hidden_sizes, output_size=None, nonlinearity=nn.ReLU, inits=None)
         self.oc = tscr(OptionCriticHead_IndependentPreprocessor(
             input_size=rnn_size,
@@ -524,12 +567,17 @@ class POMDPOcRnnUnshared1Model(nn.Module):
                  layer_norm: bool = False,
                  use_interest: bool = False,  # IOC sigmoid interest functions
                  use_diversity: bool = False,  # TDEOC q entropy output
-                 use_attention: bool = False):
+                 use_attention: bool = False,
+                 prev_action: np.ndarray = np.ones(5, dtype=bool),
+                 prev_reward: np.ndarray = np.ones(5, dtype=bool),
+                 prev_option: np.ndarray = np.zeros(5, dtype=bool)
+                 ):
         super().__init__()
         self._obs_ndim = 0
         self.rnn_is_lstm = rnn_type != 'gru'
         self.preprocessor = tscr(OneHotLayer(input_classes))
         rnn_class = get_rnn_class(rnn_type, layer_norm)
+        self.p_a, self.p_o, self.p_r = prev_action, prev_option, prev_reward
         self.rnn = rnn_class(input_classes + output_size + 1, rnn_size)  # Concat action, reward
         body_mlp_class = partial(MlpModel, hidden_sizes=hidden_sizes, output_size=None, nonlinearity=nn.ReLU, inits=None)
         self.oc = OptionCriticHead_IndependentPreprocessorWithRNN(
@@ -586,6 +634,9 @@ class POMDPOcRnnModel(nn.Module):
         use_diversity (bool): Use termination diversity objective (TDEOC)
         use_attention(bool): Use attention mechanism (AOC)
         layer_norm (bool): True for layer-normalized GRU/LSTM
+        prev_action (bool ndarray): Flag to set which rnns get previous action. [pi, beta, q, pio, interest]
+        prev_reward (bool ndarray): Flag to set which rnns get previous reward. [pi, beta, q, pio, interest]
+        prev_option (bool ndarray): Flag to set which rnns get previous reward. [pi, beta, q, pio, interest]
     """
     def __init__(self,
                  input_classes: int,
@@ -600,21 +651,28 @@ class POMDPOcRnnModel(nn.Module):
                  use_interest: bool = False,  # IOC sigmoid interest functions
                  use_diversity: bool = False,  # TDEOC q entropy output
                  use_attention: bool = False,
-                 layer_norm: bool = True
+                 layer_norm: bool = True,
+                 prev_action: np.ndarray = np.ones(5, dtype=bool),
+                 prev_reward: np.ndarray = np.ones(5, dtype=bool),
+                 prev_option: np.ndarray = np.zeros(5, dtype=bool)
                  ):
         super().__init__()
         if shared_processor and rnn_placement == 0:
             self.model = POMDPOcRnnShared0Model(input_classes, output_size, option_size, hidden_sizes, rnn_type, rnn_size,
-                                            inits is not None, layer_norm, use_interest, use_diversity, use_attention)
+                                            inits is not None, layer_norm, use_interest, use_diversity, use_attention,
+                                                prev_action, prev_reward, prev_option)
         elif shared_processor and rnn_placement == 1:
             self.model = POMDPOcRnnShared1Model(input_classes, output_size, option_size, hidden_sizes, rnn_type, rnn_size,
-                                            inits is not None, layer_norm, use_interest, use_diversity, use_attention)
+                                            inits is not None, layer_norm, use_interest, use_diversity, use_attention,
+                                                prev_action, prev_reward, prev_option)
         elif not shared_processor and rnn_placement == 0:
             self.model = POMDPOcRnnUnshared0Model(input_classes, output_size, option_size, hidden_sizes, rnn_type, rnn_size,
-                                            inits is not None, layer_norm, use_interest, use_diversity, use_attention)
+                                            inits is not None, layer_norm, use_interest, use_diversity, use_attention,
+                                                prev_action, prev_reward, prev_option)
         elif not shared_processor and rnn_placement == 1:
             self.model = POMDPOcRnnUnshared1Model(input_classes, output_size, option_size, hidden_sizes, rnn_type, rnn_size,
-                                            inits is not None, layer_norm, use_interest, use_diversity, use_attention)
+                                            inits is not None, layer_norm, use_interest, use_diversity, use_attention,
+                                                prev_action, prev_reward, prev_option)
 
     def forward(self, observation, prev_action, prev_reward, init_rnn_state):
         return self.model(observation, prev_action, prev_reward, init_rnn_state)

@@ -1,5 +1,7 @@
 from copy import deepcopy
-
+import numpy as np
+use_all = np.ones(5, dtype=bool)
+use_none = np.zeros(5, dtype=bool)
 # Common args
 # batch_T = 100  # Updated to match episode size from Chris's advice
 batch_T = 20  # On empirical evaluation, smaller seems to do alright and runs faster. 10 and 20 were rougly equivalent
@@ -10,8 +12,8 @@ base_sampler_args = dict(batch_T=batch_T, batch_B=batch_B, max_decorrelation_ste
 base_runner_args = dict(n_steps=nsteps, log_interval_steps=1e3, seed=None)
 base_env_args = dict(fomdp=False, id='POMDP-hallway-continuing-v0', time_limit=100)  # Partially-observable, time_limit as in cassandra's thesis
 base_oc_model_args = dict(option_size=4, use_interest=False, use_diversity=False, use_attention=False)  # OC model args
-base_oc_algo_args = dict(termination_lr=5e-7, pi_omega_lr=0., interest_lr=0., delib_cost=0.)
-base_rnn_args = dict(rnn_type='gru', rnn_size=256, rnn_placement=1, layer_norm=True)  # Base rnn args, best I've seen
+base_oc_algo_args = dict(termination_lr=5e-7, pi_omega_lr=0., interest_lr=0., delib_cost=0., prev_action=use_all, prev_reward=use_all, prev_option=use_none)
+base_rnn_args = dict(rnn_type='gru', rnn_size=256, rnn_placement=1, layer_norm=True, prev_action=3, prev_reward=3)  # Base rnn args, best I've seen
 
 
 configs = dict()
