@@ -1,7 +1,7 @@
 
 import torch
 
-from rlpyt.utils.tensor import to_onehot, from_onehot
+from rlpyt.utils.tensor import to_onehot, from_onehot, to_onehot_with_invalid
 
 
 class DiscreteMixin:
@@ -19,6 +19,12 @@ class DiscreteMixin:
     def to_onehot(self, indexes, dtype=None):
         """Convert from integer indexes to one-hot, preserving leading dimensions."""
         return to_onehot(indexes, self._dim, dtype=dtype or self.onehot_dtype)
+
+    def to_onehot_with_invalid(self, indexes, dtype=None):
+        """Convert from integer indexes to one-hot, preserving leading dimensions
+
+        For indices that would be out of range (e.g., -1), use empty one-hot vector"""
+        return to_onehot_with_invalid(indexes, self._dim, dtype=dtype or self.onehot_dtype)
 
     def from_onehot(self, onehot, dtype=None):
         """Convert from one-hot to integer indexes, preserving leading dimensions."""

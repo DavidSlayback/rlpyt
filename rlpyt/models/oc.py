@@ -306,8 +306,9 @@ class OptionCriticHead_IndependentPreprocessorWithRNN(nn.Module):
             self.pi_proc.apply(apply_init); self.pi_omega_proc.apply(apply_init)
             self.q_proc.apply(apply_init); self.int_proc.apply(apply_init); self.beta_proc.apply(apply_init)
         input_size = self.pi_proc.output_size
-        self.pi_rnn, self.pi_omega_rnn, self.q_rnn, self.beta_rnn = [rnn_module_class(input_size + output_size + 1, rnn_size) for _ in range(4)]
-        self.int_rnn = rnn_module_class(input_size + output_size + 1, rnn_size) if use_interest else None
+        rnn_input_sizes = [input_size + prev_option[i] * option_size + prev_action[i] * output_size + prev_reward[i] for i in range(4)]
+        self.pi_rnn, self.beta_rnn, self.q_rnn, self.pi_omega_rnn = [rnn_module_class(s, rnn_size) for s in rnn_input_sizes]
+        self.int_rnn = rnn_module_class(input_size + prev_option[-1] * option_size + prev_action[-1] * output_size + prev_reward[-1], rnn_size) if use_interest else None
         if baselines_init:
             lstm_init = partial(apply_init, gain=O_INIT_VALUES['lstm'])
             self.pi_rnn.apply(lstm_init); self.pi_omega_rnn.apply(lstm_init)

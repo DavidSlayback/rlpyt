@@ -26,6 +26,18 @@ def to_onehot(indexes, num, dtype=None):
     onehot.scatter_(-1, indexes.unsqueeze(-1).type(torch.long), 1)
     return onehot
 
+def to_onehot_with_invalid(indexes, num, dtype=None):
+    """Converts integer values in multi-dimensional tensor ``indexes``
+    to one-hot values of size ``num``; expanded in an additional
+    trailing dimension."""
+    if dtype is None:
+        dtype = indexes.dtype
+    onehot = torch.zeros(indexes.shape + (num,),
+        dtype=dtype, device=indexes.device)
+    idx_mask = indexes != -1
+    onehot[idx_mask].scatter_(-1, indexes[idx_mask].unsqueeze(-1).type(torch.long), 1)
+    return onehot
+
 
 def from_onehot(onehot, dim=-1, dtype=None):
     """Argmax over trailing dimension of tensor ``onehot``. Optional return

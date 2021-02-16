@@ -35,7 +35,6 @@ class CpuResetCollector(DecorrelatingStartCollector):
         for t in range(self.batch_T):
             env_buf.observation[t] = observation
             # Agent inputs and outputs are torch tensors.
-            print(t)
             act_pyt, agent_info = self.agent.step(obs_pyt, act_pyt, rew_pyt)
             action = numpify_buffer(act_pyt)
             for b, env in enumerate(self.envs):

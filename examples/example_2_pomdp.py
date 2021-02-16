@@ -10,6 +10,8 @@ example.
 
 """
 
+import numpy as np
+
 # Samplers
 from rlpyt.samplers.serial.sampler import SerialSampler
 from rlpyt.samplers.parallel.gpu.alternating_sampler import AlternatingSampler
@@ -38,14 +40,14 @@ def build_and_train(env_id="POMDP-hallway-episodic-v0", run_ID=0, cuda_idx=None,
     gamma = test_instance.discount
     affinity = dict(cuda_idx=cuda_idx, workers_cpus=list(range(n_parallel)), alternating=True)
     lr = 1e-3
-
+    po = np.array([1,0,0,1,0], dtype=bool)
     # Model kwargs
     # model_kwargs = dict()
     # model_kwargs = dict(hidden_sizes=[64, 64], shared_processor=False)
     # model_kwargs = dict(hidden_sizes=[64, 64], rnn_type='gru', rnn_size=256, rnn_placement=1, shared_processor=False, layer_norm=True, prev_action=3, prev_reward=3)
     # model_kwargs = dict(hidden_sizes=[64, 64], option_size=4, shared_processor=False, use_interest=False, use_diversity=False, use_attention=False)
     model_kwargs = dict(hidden_sizes=[64, 64], option_size=4, use_interest=True, use_diversity=False,
-                        use_attention=False, rnn_type='gru', rnn_size=256, rnn_placement=1, shared_processor=False, layer_norm=True)
+                        use_attention=False, rnn_type='gru', rnn_size=256, rnn_placement=1, shared_processor=False, layer_norm=True, prev_option=po)
 
     # Samplers
     # sampler = GpuSampler(
