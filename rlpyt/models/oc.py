@@ -284,6 +284,9 @@ class OptionCriticHead_IndependentPreprocessorWithRNN(nn.Module):
                  use_diversity: bool = False,
                  use_attention: bool = False,
                  baselines_init: bool = True,
+                 prev_action: np.ndarray = np.ones(5, dtype=bool),
+                 prev_reward: np.ndarray = np.ones(5, dtype=bool),
+                 prev_option: np.ndarray = np.zeros(5, dtype=bool),
                  NORM_EPS: float = 1e-6
                  ):
         super().__init__()
@@ -317,6 +320,7 @@ class OptionCriticHead_IndependentPreprocessorWithRNN(nn.Module):
         self.pi_omega = Sequential(nn.ReLU(), Linear(rnn_size, option_size), nn.Softmax(-1))
         self.interest = Sequential(nn.ReLU(), Linear(rnn_size, option_size), nn.Sigmoid()) if use_interest else Dummy(
             option_size)
+        self.p_a, self.p_o, self.p_r = prev_action, prev_option, prev_reward
         if baselines_init:
             init_v, init_pi = O_INIT_VALUES['v'], O_INIT_VALUES['pi']
             self.beta[1].apply(apply_init)
@@ -325,23 +329,24 @@ class OptionCriticHead_IndependentPreprocessorWithRNN(nn.Module):
             if use_interest: self.interest[0].apply(apply_init)
             if use_diversity: self.q_ent.apply(apply_init)
 
-    def forward(self, observation, prev_action, prev_reward, T, B, init_rnn_states):
+    def forward(self, observation, prev_action, prev_reward, prev_option, T, B, init_rnn_states):
         # pi, beta, q, pi_omega, I hiddens
         # Features
         features = (pi_f, beta_f, q_f, pi_omega_f, I_f) = (self.pi_proc(observation), self.beta_proc(observation), self.q_proc(observation),
                                      self.pi_omega_proc(observation), self.int_proc(observation))
         # Rnns
-        rnn_extra = torch.cat([
-            prev_action.view(T, B, -1),  # Assumed onehot.
-            prev_reward.view(T, B, 1),
-            ], dim=2)
-        p_rnn_in, b_rnn_in, q_rnn_in, pio_rnn_in = [torch.cat([f.view(T, B, -1), rnn_extra], dim=2) for f in features[:-1]]
+        rnn_inputs = [torch.cat([f.view(T,B,-1)] + ([prev_action.view(T, B, -1)] if self.p_a[i] else []) +
+                    ([prev_reward.view(T, B, 1)] if self.p_r[i] else []) +
+                    ([prev_option.view(T, B, -1)] if self.p_o[i] else []), dim=2) for i, f in enumerate(features[:-1])]
+        p_rnn_in, b_rnn_in, q_rnn_in, pio_rnn_in = rnn_inputs
         p_s, b_s, q_s, pio_s, i_s = init_rnn_states
         (p_rnn_out, np_s), (b_rnn_out, nb_s), (q_rnn_out, nq_s), (pio_rnn_out, npio_s) = (self.pi_rnn(p_rnn_in, p_s), self.beta_rnn(b_rnn_in, b_s),
                                                         self.q_rnn(q_rnn_in, q_s), self.pi_omega_rnn(pio_rnn_in, pio_s))
         pi, beta, q, pi_omega = self.pi(p_rnn_out.view(T*B,-1)), self.beta(b_rnn_out.view(T*B,-1)), self.q(q_rnn_out.view(T*B,-1)), self.pi_omega(pio_rnn_out.view(T*B, -1))
         if self.use_interest:
-            i_rnn_in = torch.cat([I_f.view(T, B, -1), rnn_extra], dim=2)
+            inp_list = [I_f.view(T, B, -1)] + ([prev_action.view(T, B, -1)] if self.p_a[-1] else []) + (
+                [prev_reward.view(T, B, 1)] if self.p_r[-1] else []) + ([prev_option.view(T, B, -1)] if self.p_o[-1] else [])
+            i_rnn_in = torch.cat(inp_list, dim=2)
             i_rnn_out, ni_s = self.int_rnn(i_rnn_in, i_s)
             I = self.interest(i_rnn_out.view(T*B,-1))
             pi_omega = pi_omega * I

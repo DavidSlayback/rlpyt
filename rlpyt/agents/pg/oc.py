@@ -61,9 +61,10 @@ class AlternatingCategoricalOcAgent(AlternatingOCAgentMixin, CategoricalOCAgentB
 
 
 class RecurrentCategoricalOCAgentBase(OCOptimizerMixin, BaseAgent):
-    def __call__(self, observation, prev_action, prev_reward, sampled_option, init_rnn_state, device="cpu"):
+    def __call__(self, observation, prev_action, prev_reward, sampled_option, prev_option, init_rnn_state, device="cpu"):
         prev_action = self.distribution.to_onehot(prev_action)
-        model_inputs = buffer_to((observation, prev_action, prev_reward, init_rnn_state, sampled_option),
+        prev_option = self.distribution_omega.to_onehot(prev_option)
+        model_inputs = buffer_to((observation, prev_action, prev_reward, prev_option, init_rnn_state, sampled_option),
             device=self.device)
         pi, beta, q, pi_omega, next_rnn_state = self.model(*model_inputs[:-1])
         return buffer_to((DistInfo(prob=select_at_indexes(sampled_option, pi)), q, beta, DistInfo(prob=pi_omega)), device=device), next_rnn_state
@@ -77,8 +78,12 @@ class RecurrentCategoricalOCAgentBase(OCOptimizerMixin, BaseAgent):
 
     @torch.no_grad()
     def step(self, observation, prev_action, prev_reward, device="cpu"):
+        prev_option_input = self._prev_option
+        if prev_option_input is None:  # Hack to extract previous option
+            prev_option_input = torch.randint_like(prev_action, 0, self.model_kwargs['option_size'])
         prev_action = self.distribution.to_onehot(prev_action)
-        model_inputs = buffer_to((observation, prev_action, prev_reward),
+        prev_option_input = self.distribution_omega.to_onehot(prev_option_input)
+        model_inputs = buffer_to((observation, prev_action, prev_reward, prev_option_input),
             device=self.device)
         pi, beta, q, pi_omega, rnn_state = self.model(*model_inputs, self.prev_rnn_state)
         dist_info_omega = DistInfo(prob=pi_omega)
@@ -101,8 +106,12 @@ class RecurrentCategoricalOCAgentBase(OCOptimizerMixin, BaseAgent):
 
     @torch.no_grad()
     def value(self, observation, prev_action, prev_reward, device="cpu"):
+        prev_option_input = self._prev_option
+        if prev_option_input is None:  # Hack to extract previous option
+            prev_option_input = torch.randint_like(prev_action, 0, self.model_kwargs['option_size'])
         prev_action = self.distribution.to_onehot(prev_action)
-        agent_inputs = buffer_to((observation, prev_action, prev_reward),
+        prev_option_input = self.distribution_omega.to_onehot(prev_option_input)
+        agent_inputs = buffer_to((observation, prev_action, prev_reward, prev_option_input),
             device=self.device)
         _pi, beta, q, pi_omega, _rnn_state = self.model(*agent_inputs, self.prev_rnn_state)
         v = (q * pi_omega).sum(-1)  # Weight q value by probability of option. Average value if terminal

@@ -42,10 +42,10 @@ def build_and_train(env_id="POMDP-hallway-episodic-v0", run_ID=0, cuda_idx=None,
     # Model kwargs
     # model_kwargs = dict()
     # model_kwargs = dict(hidden_sizes=[64, 64], shared_processor=False)
-    model_kwargs = dict(hidden_sizes=[64, 64], rnn_type='gru', rnn_size=256, rnn_placement=1, shared_processor=False, layer_norm=True, prev_action=3, prev_reward=3)
+    # model_kwargs = dict(hidden_sizes=[64, 64], rnn_type='gru', rnn_size=256, rnn_placement=1, shared_processor=False, layer_norm=True, prev_action=3, prev_reward=3)
     # model_kwargs = dict(hidden_sizes=[64, 64], option_size=4, shared_processor=False, use_interest=False, use_diversity=False, use_attention=False)
-    # model_kwargs = dict(hidden_sizes=[64, 64], option_size=4, use_interest=True, use_diversity=False,
-    #                     use_attention=False, rnn_type='gru', rnn_size=256, rnn_placement=1, shared_processor=False, layer_norm=True)
+    model_kwargs = dict(hidden_sizes=[64, 64], option_size=4, use_interest=True, use_diversity=False,
+                        use_attention=False, rnn_type='gru', rnn_size=256, rnn_placement=1, shared_processor=False, layer_norm=True)
 
     # Samplers
     # sampler = GpuSampler(
@@ -84,16 +84,16 @@ def build_and_train(env_id="POMDP-hallway-episodic-v0", run_ID=0, cuda_idx=None,
     )
 
     # Algos (swapping out discount)
-    algo = A2C(discount=gamma, learning_rate=lr, clip_grad_norm=2.)
-    # algo = A2OC(discount=gamma, learning_rate=lr, clip_grad_norm=2.)
+    # algo = A2C(discount=gamma, learning_rate=lr, clip_grad_norm=2.)
+    algo = A2OC(discount=gamma, learning_rate=lr, clip_grad_norm=2.)
     # algo = PPO(discount=gamma, learning_rate=lr, clip_grad_norm=2.)
     # algo = PPOC(discount=gamma, learning_rate=lr, clip_grad_norm=2.)
 
     # Agents
     # agent = PomdpFfAgent(model_kwargs=model_kwargs)
-    agent = PomdpRnnAgent(model_kwargs=model_kwargs)
+    # agent = PomdpRnnAgent(model_kwargs=model_kwargs)
     # agent = PomdpOcFfAgent(model_kwargs=model_kwargs)
-    # agent = PomdpOcRnnAgent(model_kwargs=model_kwargs)
+    agent = PomdpOcRnnAgent(model_kwargs=model_kwargs)
     # agent = AlternatingPomdpRnnAgent(model_kwargs=model_kwargs)
     # agent = AlternatingPomdpOcRnnAgent(model_kwargs=model_kwargs)
     runner = MinibatchRl(

@@ -423,7 +423,7 @@ class POMDPOcRnnShared0Model(nn.Module):
             self.body.apply(apply_init)
         self.body = tscr(self.body)
 
-    def forward(self, observation, prev_action, prev_reward, init_rnn_state):
+    def forward(self, observation, prev_action, prev_reward, prev_option, init_rnn_state):
         lead_dim, T, B, _ = infer_leading_dims(observation, self._obs_ndim)
         if init_rnn_state is not None and self.rnn_is_lstm: init_rnn_state = tuple(init_rnn_state)  # namedarraytuple -> tuple (h, c)
         o = self.preprocessor(observation)
@@ -481,16 +481,13 @@ class POMDPOcRnnShared1Model(nn.Module):
             self.body.apply(apply_init)
         self.body = tscr(self.body)
 
-    def forward(self, observation, prev_action, prev_reward, init_rnn_state):
+    def forward(self, observation, prev_action, prev_reward, prev_option, init_rnn_state):
         lead_dim, T, B, _ = infer_leading_dims(observation, self._obs_ndim)
         if init_rnn_state is not None and self.rnn_is_lstm: init_rnn_state = tuple(init_rnn_state)  # namedarraytuple -> tuple (h, c)
         o = self.preprocessor(observation.view(T * B))
         features = self.body(o)
-        rnn_input = torch.cat([
-            features.view(T,B,-1),
-            prev_action.view(T, B, -1),  # Assumed onehot.
-            prev_reward.view(T, B, 1),
-            ], dim=2)
+        inp_list = [features.view(T,B,-1)] + ([prev_action.view(T, B, -1)] if self.p_a else []) + ([prev_reward.view(T, B, 1)] if self.p_r else []) + ([prev_option.view(T, B, -1)] if self.p_o else [])
+        rnn_input = torch.cat(inp_list, dim=2)
         rnn_out, next_rnn_state = self.rnn(rnn_input, init_rnn_state)
         rnn_out = rnn_out.view(T*B, -1)
         pi, beta, q, pi_omega, q_ent = self.oc(rnn_out)
@@ -538,15 +535,12 @@ class POMDPOcRnnUnshared0Model(nn.Module):
         if baselines_init:
             self.rnn.apply(partial(apply_init, gain=O_INIT_VALUES['lstm']))
 
-    def forward(self, observation, prev_action, prev_reward, init_rnn_state):
+    def forward(self, observation, prev_action, prev_reward, prev_option, init_rnn_state):
         lead_dim, T, B, _ = infer_leading_dims(observation, self._obs_ndim)
         if init_rnn_state is not None and self.rnn_is_lstm: init_rnn_state = tuple(init_rnn_state)  # namedarraytuple -> tuple (h, c)
         o = self.preprocessor(observation)
-        rnn_input = torch.cat([
-            o.view(T,B,-1),
-            prev_action.view(T, B, -1),  # Assumed onehot.
-            prev_reward.view(T, B, 1),
-            ], dim=2)
+        inp_list = [o.view(T,B,-1)] + ([prev_action.view(T, B, -1)] if self.p_a else []) + ([prev_reward.view(T, B, 1)] if self.p_r else []) + ([prev_option.view(T, B, -1)] if self.p_o else [])
+        rnn_input = torch.cat(inp_list, dim=2)
         rnn_out, next_rnn_state = self.rnn(rnn_input, init_rnn_state)
         rnn_out = rnn_out.view(T*B, -1)
         pi, beta, q, pi_omega, q_ent = self.oc(rnn_out)
@@ -595,7 +589,7 @@ class POMDPOcRnnUnshared1Model(nn.Module):
         if baselines_init:
             self.rnn.apply(partial(apply_init, gain=O_INIT_VALUES['lstm']))
 
-    def forward(self, observation, prev_action, prev_reward, init_rnn_state):
+    def forward(self, observation, prev_action, prev_reward, prev_option, init_rnn_state):
         lead_dim, T, B, _ = infer_leading_dims(observation, self._obs_ndim)
         if init_rnn_state is not None:
             if self.rnn_is_lstm:
@@ -607,7 +601,7 @@ class POMDPOcRnnUnshared1Model(nn.Module):
             init_rnn_pi, init_rnn_beta, init_rnn_q, init_rnn_pi_omega, init_rnn_I = None, None, None, None, None
         o = self.preprocessor(observation.view(T * B))
         pi, beta, q, pi_omega, q_ent, (nrs_pi, nrs_beta, nrs_q, nrs_pi_omega, nrs_I) = \
-            self.oc(o, prev_action, prev_reward, T, B, (init_rnn_pi, init_rnn_beta, init_rnn_q, init_rnn_pi_omega, init_rnn_I))
+            self.oc(o, prev_action, prev_reward, prev_option, T, B, (init_rnn_pi, init_rnn_beta, init_rnn_q, init_rnn_pi_omega, init_rnn_I))
         pi, beta, q, pi_omega, q_ent = restore_leading_dims((pi, beta, q, pi_omega, q_ent), lead_dim, T, B)
         if self.rnn_is_lstm:
             next_rnn_state = IocRnnState(pi=RnnState(*nrs_pi), beta=RnnState(*nrs_beta), q=RnnState(*nrs_q), pi_omega=RnnState(*nrs_pi_omega), interest=RnnState(*nrs_I))
@@ -674,5 +668,5 @@ class POMDPOcRnnModel(nn.Module):
                                             inits is not None, layer_norm, use_interest, use_diversity, use_attention,
                                                 prev_action, prev_reward, prev_option)
 
-    def forward(self, observation, prev_action, prev_reward, init_rnn_state):
-        return self.model(observation, prev_action, prev_reward, init_rnn_state)
+    def forward(self, observation, prev_action, prev_reward, prev_option, init_rnn_state):
+        return self.model(observation, prev_action, prev_reward, prev_option, init_rnn_state)
