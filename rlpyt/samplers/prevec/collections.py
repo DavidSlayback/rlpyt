@@ -22,20 +22,29 @@ class TrajInfoVec(AttrDict):
         self.DiscountedReturn = np.zeros(B)
         self._cur_discount = np.ones(B)
 
-    def step(self, observation, action, reward, done, agent_info, env_info):
+    def step(self, observation, action, reward, done, agent_info, env_info, reset_dones=False):
         """ Step AND take dones into account"""
         self.Length += 1
         self.Return+= reward
         self.NonzeroRewards[reward != 0] += 1
         self.DiscountedReturn += self._cur_discount * reward
         self._cur_discount *= self._discount
-        self.reset_dones(done)
+        if reset_dones:
+            self.reset_dones(done)
 
     def reset_dones(self, done):
+        l_A, r_A, nr_A, dr_A, _cd_A = self.Length[done], self.Return[done], self.NonzeroRewards[done], self.DiscountedReturn[done], self._cur_discount[done]
+        completed_infos = [AttrDict(Length=l,
+                                    Return=r,
+                                    NonzeroRewards=nr,
+                                    DiscountedReturn=dr,
+                                    _cur_discount=_cd,
+                                    _discount=self._discount) for l, r, nr, dr, _cd in zip(l_A, r_A, nr_A, dr_A, _cd_A)]
         self.Length[done], self.Return[done], self.NonzeroRewards[done], self.DiscountedReturn[done], self._cur_discount[done] = 0, 0., 0., 0., 1.
+        return completed_infos
 
-    def terminate(self, observation):
-        return self
+    def terminate(self, done):
+        return self.reset_dones(done)
 
 class TrajInfoVecGPU(AttrDict):
     """

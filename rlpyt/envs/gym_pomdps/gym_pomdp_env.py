@@ -1,8 +1,10 @@
 import gym
 import gym_pomdps
+from gym_pomdps.wrappers.fomdp import AutoresettingBatchPOMDP
 import numpy as np
 
 from rlpyt.envs.base import Env, EnvStep
+from rlpyt.spaces.gym_wrapper import GymSpaceWrapper
 from rlpyt.spaces.int_box import IntBox
 from collections import namedtuple
 
@@ -105,6 +107,54 @@ class FOMDPEnv(Env):
 
     def render(self, mode='rgb_array'):
         pass
+
+    @property
+    def state(self):
+        return self.env.state
+
+class VectorizedIntBox(IntBox):
+    def __init__(self, batch_B, **kwargs):
+        super().__init__(**kwargs)
+        self.B = batch_B
+
+    def sample(self):
+        """Return multiple samples from ``np.random.randint``."""
+        return np.random.randint(low=self.low, high=self.high,
+            size=(self.B,) + self.shape, dtype=self.dtype)
+
+    def null_value(self):
+        null = np.zeros((self.B, ) + self.shape, dtype=self.dtype)
+        if self._null_value is not None:
+            try:
+                null[:] = self._null_value
+            except IndexError:
+                null.fill(self._null_value)
+        return null
+
+class BatchPOMDPEnv(Env):
+    def __init__(self, id, batch_B, fomdp=False, time_limit=None):
+        assert id in env_list
+        self.episodic = id.split('-')[2] == 'episodic'
+        self.env = AutoresettingBatchPOMDP(gym.make(id), batch_B, fomdp, time_limit)
+        self.discount = self.env.discount
+        self._action_space = VectorizedIntBox(
+            batch_B=batch_B,
+            low=0, high=self.env.action_space.n)
+        self._observation_space = IntBox(low=0, high=self.env.observation_space.n)  # state == -1 if episodic
+        self.num_envs = batch_B
+
+    def step(self, action):
+        o, r, d, info = self.env.step(action)  # Handles fomdp and pomdp
+        return EnvStep(o, r, d, EnvInfo(**info, state=self.state))
+
+    def reset(self):
+        return self.env.reset()  # Reset state, return
+
+    def render(self, mode='rgb_array'):
+        pass
+
+    def seed(self, seed=None):
+        self.env.seed(seed)
 
     @property
     def state(self):

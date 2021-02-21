@@ -1,28 +1,31 @@
-from rlpyt.utils.logging import logger
 from rlpyt.agents.base import AgentInputs
-from rlpyt.samplers.buffer import build_samples_buffer_torch_env
-from rlpyt.utils.buffer import buffer_to
+from rlpyt.samplers.buffer import build_samples_buffer, get_example_outputs_single
+from rlpyt.utils.buffer import torchify_buffer, numpify_buffer, buffer_from_example
 from rlpyt.utils.logging import logger
 from rlpyt.samplers.collections import BatchSpec, TrajInfo
-from rlpyt.samplers.prevec.collections import TrajInfoVecGPU
-from gym_pomdps.wrappers import AutoresettingBatchPOMDP
+from rlpyt.samplers.prevec.collections import TrajInfoVec
+from rlpyt.samplers.collectors import DecorrelatingStartCollector
 import numpy as np
+from rlpyt.samplers.base import BaseSampler
+import gym
+import gym_pomdps
+from gym_pomdps.wrappers import AutoresettingBatchPOMDP
 import torch
 
-class IsaacSampler:
-    """ Specially made serial sampler variant for isaacgym"""
+class BatchPOMDPSampler:
+    """ Specially made serial sampler variant for batched pomdps"""
     alternating = False  # Can't alternate, just one cuda env
     mid_batch_reset = False
     def __init__(self,
-                 isaac_env,  # Instantiated isaac environment
+                 env,  # Instantiated BatchPOMDPEnv
                  batch_T,  # Number of timesteps per sampled batch
-                 batch_B=None,  # Ignored, comes from env
-                 max_decorrelation_steps=100  # Number of random actions to take at start,
+                 batch_B,  # Number of envs in batch
+                 max_decorrelation_steps=0,  # Number of random actions to take at start,
                  ):
-        self.batch_spec = BatchSpec(batch_T, isaac_env.num_envs)
-        self.env = isaac_env
+        self.env = env
+        self.batch_spec = BatchSpec(batch_T, env.num_envs)
         self.decorrelation_steps = max_decorrelation_steps
-        self.TrajInfoCls = TrajInfoVecGPU
+        self.TrajInfoCls = TrajInfoVec
         self.ReturnTrajInfoCls = TrajInfo
 
     def initialize(self,
@@ -39,36 +42,37 @@ class IsaacSampler:
         global_B = B * world_size
         env_ranks = list(range(rank * B, (rank + 1) * B))
         agent.initialize(self.env.spaces, share_memory=False, global_B=global_B, env_ranks=env_ranks)
-        samples_pyt, samples_np, examples = build_samples_buffer_torch_env(agent, self.env,
+        self.env.seed(seed)
+        examples = dict()
+        get_example_outputs_single(agent, self.env, examples, subprocess=False)
+        samples_pyt, samples_np, examples = build_samples_buffer(agent, self.env,
             self.batch_spec, bootstrap_value, agent_shared=False,
-            env_shared=False, subprocess=False)
-        self.samples_pyt = buffer_to(samples_pyt, self.env.device)  # Pytorch buffer
+            env_shared=False, subprocess=False, examples=examples)
+        self.samples_pyt = samples_pyt
+        self.samples_np = samples_np
         if traj_info_kwargs:
             for k, v in traj_info_kwargs.items():
                 setattr(self.TrajInfoCls, "_" + k, v)  # Avoid passing at init.
                 setattr(self.ReturnTrajInfoCls, "_" + k, v)
-        if self.decorrelation_steps != 0:
-            self.agent_inputs, self.traj_infos = self._decorrelate_envs()
+        self.agent_inputs, self.traj_infos = self._decorrelate_envs()
         # Collector calls start_agent here, but doesn't apply
         self.agent = agent
-        logger.log("Isaac Sampler initialized.")
+        logger.log("Pomdp Sampler initialized.")
         return examples
 
     def _decorrelate_envs(self):
         """Return agent_inputs and traj_info at the end of decorrelation using random actions (collector.start_envs)"""
-        prev_action = torch.tensor(np.tile(self.env.action_space.null_value(), (self.batch_spec.B, 1)), device=self.env.device)
-        prev_reward = torch.zeros((self.batch_spec.B,), device=self.env.device)
-        observation = torch.zeros((self.batch_spec.B, self.env.observation_space.shape[0]), device=self.env.device)
+        o = self.env.reset()
+        prev_observation = buffer_from_example(o[0], self.batch_spec.B)
+        prev_reward = np.zeros(self.batch_spec.B, dtype="float32")
+        prev_action = np.zeros(self.batch_spec.B, dtype=int)
         traj_infos = self.TrajInfoCls(B=self.batch_spec.B)
-
-        self.env.reset()  # Reset all environments
         for _ in range(self.decorrelation_steps):
-            a = self.env.action_space.sample()  # Sample random actions
-            o, r, d, info = self.env.step(a)  # Take step
-            traj_infos.step(o, a, r, d, None, info, reset_dones=True)  # Update traj_info
+            prev_action[:] = self.env.action_space.sample()  # Sample random actions for each
+            prev_observation[:], prev_reward[:], d, info = self.env.step(prev_action[:])  # Take step
+            traj_infos.step(prev_observation, prev_action, prev_reward, d, None, info, reset_dones=True)  # Update traj_info
 
-        observation[:], prev_action[:], prev_reward[:] = o, a, r
-        return AgentInputs(o, a, r), traj_infos
+        return AgentInputs(prev_observation, prev_action, prev_reward), traj_infos
 
     def obtain_samples(self, itr):
         """Execute agent-environment interactions and return data batch."""
@@ -77,21 +81,23 @@ class IsaacSampler:
 
     def _collect_batch(self, itr):
         """Collect batch of experience from environment (collector.collect_batch)"""
-        agent_buf, env_buf = self.samples_pyt.agent, self.samples_pyt.env
+        agent_buf, env_buf = self.samples_np.agent, self.samples_np.env
         completed_infos = list()
-        o, a, r = self.agent_inputs  # Previous last inputs. Already torchified
+        o, a, r = self.agent_inputs  # Previous last inputs
+        o_p, a_p, r_p = torchify_buffer(self.agent_inputs)
         self.agent.sample_mode(itr)
+        agent_buf.prev_action[0] = a  # Store previous action
+        env_buf.prev_reward[0] = r  # Store previous reward
         for t in range(self.batch_spec.T):
-            agent_buf.prev_action[t] = a  # Store previous action
-            env_buf.prev_reward[t] = r  # Store previous reward
             env_buf.observation[t] = o  # Store observation
             # Agent inputs and outputs are torch tensors.
-            a, agent_info = self.agent.step(o, a, r)
-            o, r, d, info = self.env.step(a)
+            a_p, agent_info = self.agent.step(o_p, a_p, r_p)
+            a = numpify_buffer(a_p)
+            o[:], r[:], d, info = self.env.step(a)
             self.traj_infos.step(o, a, r, d, agent_info, info, reset_dones=False)
             # Get completed infos (non-tensor). Environment auto-resets
             completed_infos += self.traj_infos.terminate(d)
-            if torch.sum(d): self.agent.reset_multiple(indexes=d.cpu().bool().numpy())
+            if np.sum(d): self.agent.reset_multiple(indexes=d)
             env_buf.done[t] = d
             env_buf.reward[t] = r
             agent_buf.action[t] = a
@@ -102,7 +108,7 @@ class IsaacSampler:
 
         if "bootstrap_value" in agent_buf:
             # agent.value() should not advance rnn state.
-            agent_buf.bootstrap_value[:] = self.agent.value(o, a, r)
+            agent_buf.bootstrap_value[:] = self.agent.value(o_p, a_p, r_p)
 
         return AgentInputs(o, a, r), self.traj_infos, completed_infos
 

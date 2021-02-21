@@ -119,6 +119,31 @@ def get_example_outputs(agent, env, examples, subprocess=False):
     examples["action"] = a  # OK to put torch tensor here, could numpify.
     examples["agent_info"] = agent_info
 
+def get_example_outputs_single(agent, env, examples, subprocess=False):
+    """For pre-batched environments"""
+    if subprocess:  # i.e. in subprocess.
+        import torch
+        torch.set_num_threads(1)  # Some fix to prevent MKL hang.
+    o = env.reset()
+    a = env.action_space.sample()
+    o, r, d, env_info = env.step(a)
+    r = np.asarray(r, dtype="float32")  # Must match torch float dtype here.
+    agent.reset()
+    agent_inputs = torchify_buffer(AgentInputs(o, a, r))
+    a, agent_info = agent.step(*agent_inputs)
+    if "prev_rnn_state" in agent_info:
+        # Agent leaves B dimension in, strip it: [B,N,H] --> [N,H]
+        agent_info = agent_info._replace(prev_rnn_state=agent_info.prev_rnn_state[0])
+    agent_info_0 = agent_info.__class__(*(i[0] for i in agent_info))
+    env_info_0 = env_info.__class__(*(i[0] for i in env_info))
+    examples["observation"] = o[0]
+    examples["reward"] = r[0]
+    examples["done"] = d[0]
+    examples["env_info"] = env_info_0
+    examples["action"] = a[0]  # OK to put torch tensor here, could numpify.
+    examples["agent_info"] = agent_info_0
+
+
 def get_example_outputs_torch_env(agent, env, examples, subprocess=False):
     """Do this in a sub-process to avoid setup conflict in master/workers (e.g.
     MKL)."""
