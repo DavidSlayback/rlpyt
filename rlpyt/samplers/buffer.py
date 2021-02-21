@@ -133,8 +133,11 @@ def get_example_outputs_single(agent, env, examples, subprocess=False):
     a, agent_info = agent.step(*agent_inputs)
     if "prev_rnn_state" in agent_info:
         # Agent leaves B dimension in, strip it: [B,N,H] --> [N,H]
-        agent_info = agent_info._replace(prev_rnn_state=agent_info.prev_rnn_state[0])
-    agent_info_0 = agent_info.__class__(*(i[0] for i in agent_info))
+        prev_rnn_state = agent_info.prev_rnn_state[0]
+        agent_info_0 = agent_info.__class__(*(i[0] for i in agent_info))
+        agent_info_0 = agent_info_0._replace(prev_rnn_state=prev_rnn_state)
+    else:
+        agent_info_0 = agent_info.__class__(*(i[0] for i in agent_info))
     env_info_0 = env_info.__class__(*(i[0] for i in env_info))
     examples["observation"] = o[0]
     examples["reward"] = r[0]
