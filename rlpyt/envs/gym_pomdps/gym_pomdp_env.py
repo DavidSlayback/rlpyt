@@ -132,7 +132,7 @@ class VectorizedIntBox(IntBox):
         return null
 
 class BatchPOMDPEnv(Env):
-    def __init__(self, id, batch_B, fomdp=False, time_limit=None):
+    def __init__(self, id, batch_B, fomdp=False, time_limit=None, **_):
         assert id in env_list
         self.episodic = id.split('-')[2] == 'episodic'
         self.env = AutoresettingBatchPOMDP(gym.make(id), batch_B, fomdp, time_limit)

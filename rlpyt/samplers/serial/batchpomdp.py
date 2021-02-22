@@ -4,13 +4,7 @@ from rlpyt.utils.buffer import torchify_buffer, numpify_buffer, buffer_from_exam
 from rlpyt.utils.logging import logger
 from rlpyt.samplers.collections import BatchSpec, TrajInfo
 from rlpyt.samplers.prevec.collections import TrajInfoVec
-from rlpyt.samplers.collectors import DecorrelatingStartCollector
 import numpy as np
-from rlpyt.samplers.base import BaseSampler
-import gym
-import gym_pomdps
-from gym_pomdps.wrappers import AutoresettingBatchPOMDP
-import torch
 
 class BatchPOMDPSampler:
     """ Specially made serial sampler variant for batched pomdps"""
@@ -19,8 +13,8 @@ class BatchPOMDPSampler:
     def __init__(self,
                  env,  # Instantiated BatchPOMDPEnv
                  batch_T,  # Number of timesteps per sampled batch
-                 batch_B,  # Number of envs in batch
                  max_decorrelation_steps=0,  # Number of random actions to take at start,
+                 **_  # throw away the rest
                  ):
         self.env = env
         self.batch_spec = BatchSpec(batch_T, env.num_envs)

@@ -20,10 +20,10 @@ affinity_code = encode_affinity(
 
 runs_per_setting = 5  # 3 runs
 # Paths
-path_a2c = (pathlib.Path(__file__).resolve().parent.parent / 'train' / "pomdp_ff_a2c_gpu.py").as_posix()
-path_a2oc = (pathlib.Path(__file__).resolve().parent.parent / 'train' / "pomdp_ff_a2oc_gpu.py").as_posix()
-path_a2c_rnn = (pathlib.Path(__file__).resolve().parent.parent / 'train' / "pomdp_rnn_a2c_gpu.py").as_posix()
-path_a2oc_rnn = (pathlib.Path(__file__).resolve().parent.parent / 'train' / "pomdp_rnn_a2oc_gpu.py").as_posix()
+path_a2c = (pathlib.Path(__file__).resolve().parent.parent / 'train' / "b_pomdp_ff_a2c_gpu.py").as_posix()
+path_a2oc = (pathlib.Path(__file__).resolve().parent.parent / 'train' / "b_pomdp_ff_a2oc_gpu.py").as_posix()
+path_a2c_rnn = (pathlib.Path(__file__).resolve().parent.parent / 'train' / "b_pomdp_rnn_a2c_gpu.py").as_posix()
+path_a2oc_rnn = (pathlib.Path(__file__).resolve().parent.parent / 'train' / "b_pomdp_rnn_a2oc_gpu.py").as_posix()
 # Default keys
 default_key = 'hallway_5e5'
 oc_key = 'hallway_5e5_oc'

@@ -5,6 +5,20 @@ from gym_pomdps.envs import POMDP
 
 __all__ = ['FullyObservablePOMDP', 'PartiallyObservablePOMDP', 'AutoresettingBatchPOMDP']
 
+def vectorized_multinomial(selected_prob_matrix, random_numbers):
+    """Vectorized sample from [B,N] probabilitity matrix
+
+    Lightly edited from https://stackoverflow.com/a/34190035/2504700
+
+    Args:
+        selected_prob_matrix: (Batch, p) size probability matrix (i.e. T[s,a] or O[s,a,s']
+        random_numbers: (Batch,) size random numbers from np.random.rand()
+    Returns:
+        (Batch,) size sampled integers
+    """
+    s = selected_prob_matrix.cumsum(axis=1)  # Sum over p dim for accumulated probability
+    return (s < np.expand_dims(random_numbers, axis=-1)).sum(axis=1)  # Returns first index where random number < accumulated probability
+
 class FullyObservablePOMDP(gym.ObservationWrapper):
     """Returns state instead of observation"""
     def __init__(self, env):
@@ -75,12 +89,15 @@ class AutoresettingBatchPOMDP(gym.Wrapper):
 
         shape = state.shape  # Shape of state (batch size)
         # Assume current state is all valid (because autoreset)
-        s = np.array([
-            self.np_random.multinomial(1,p).argmax() for p in self.env.T[state, action]
-        ])
-        o = np.array([
-            self.np_random.multinomial(1, p).argmax() for p in self.env.O[state, action, s]
-        ])
+        s_random, o_random = np.split(self.np_random.rand(self.batch_size*2), 2)  # Random numbers are expensive, draw all of them here
+        s = vectorized_multinomial(self.env.T[state, action], s_random)
+        o = vectorized_multinomial(self.env.O[state, action, s], o_random)
+        # s = np.array([
+        #     self.np_random.multinomial(1,p).argmax() for p in self.env.T[state, action]
+        # ])
+        # o = np.array([
+        #     self.np_random.multinomial(1, p).argmax() for p in self.env.O[state, action, s]
+        # ])
         r = self.env.R[state, action, s, o]
         self.elapsed_time += 1
         d = self.elapsed_time >= self.max_time
@@ -92,3 +109,4 @@ class AutoresettingBatchPOMDP(gym.Wrapper):
         reward_cat = [self.rewards_dict[r_] for r_ in r]
         info = dict(reward_cat=reward_cat)
         return s, o, r, d, info
+

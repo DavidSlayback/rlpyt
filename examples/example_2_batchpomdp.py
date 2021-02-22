@@ -49,7 +49,7 @@ def build_and_train(env_id="POMDP-hallway-episodic-v0", run_ID=0, cuda_idx=None,
     # model_kwargs = dict(hidden_sizes=[64, 64], option_size=4, shared_processor=False, use_interest=False, use_diversity=False, use_attention=False)
     # model_kwargs = dict(hidden_sizes=[64, 64], option_size=4, use_interest=True, use_diversity=False,
     #                     use_attention=False, rnn_type='gru', rnn_size=256, rnn_placement=1, shared_processor=False, layer_norm=True, prev_option=po)
-    sampler = SamplerCls(env, batch_T, batch_B, max_decorrelation_steps=0)
+    sampler = SamplerCls(env, batch_T, max_decorrelation_steps=0)
 
     # Samplers
 
@@ -74,7 +74,8 @@ def build_and_train(env_id="POMDP-hallway-episodic-v0", run_ID=0, cuda_idx=None,
         log_interval_steps=1e3,
         affinity=affinity,
     )
-    config = dict(env_id=env_id, fomdp=fomdp, algo_name=algo.__class__.__name__, learning_rate=lr, model=model_kwargs)
+    config = dict(env_id=env_id, fomdp=fomdp, algo_name=algo.__class__.__name__, learning_rate=lr,
+                  sampler=sampler.__class__.__name__, model=model_kwargs)
     name = algo.NAME + '_' + env_id
     log_dir = "pomdps"
     with logger_context(log_dir, run_ID, name, config):
@@ -87,7 +88,7 @@ if __name__ == "__main__":
     parser.add_argument('--env_id', help='environment ID', default='POMDP-hallway-episodic-v0')
     parser.add_argument('--run_ID', help='run identifier (logging)', type=int, default=0)
     parser.add_argument('--cuda_idx', help='gpu to use ', type=int, default=0)
-    parser.add_argument('--fomdp', help='Set true if fully observable ', type=bool, default=True)
+    parser.add_argument('--fomdp', help='Set true if fully observable ', type=bool, default=False)
     args = parser.parse_args()
     build_and_train(
         env_id=args.env_id,
