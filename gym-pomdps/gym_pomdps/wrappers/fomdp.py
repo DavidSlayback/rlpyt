@@ -110,3 +110,25 @@ class AutoresettingBatchPOMDP(gym.Wrapper):
         info = dict(reward_cat=reward_cat)
         return s, o, r, d, info
 
+if __name__ == "__main__":
+    b = 30
+    t=1000
+    e = AutoresettingBatchPOMDP(gym.make('POMDP-rock_sample_7_8-continuing-v0'), b)
+    T, o = e.env.T, e.env.O
+    s = np.random.multinomial(1, e.env.start, size=(t,b)).argmax(-1)
+    a = np.random.randint(0, e.action_space.n, size=(t,b))
+    def so_new(T, o, state, action):
+        s_random, o_random = np.split(np.random.rand(b * 2),2)
+        s = vectorized_multinomial(T[state, action], s_random)
+        o = vectorized_multinomial(o[state, action, s], o_random)
+    def so_old(T, o, state, action):
+        s = np.array([
+            np.random.multinomial(1,p).argmax() for p in T[state, action]
+        ])
+        o = np.array([
+            np.random.multinomial(1, p).argmax() for p in o[state, action, s]
+        ])
+    for tm in range(t):
+        so_new(T, o, s[tm], a[tm])
+        so_old(T, o, s[tm], a[tm])
+
