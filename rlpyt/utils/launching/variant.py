@@ -71,17 +71,11 @@ def load_variant(log_dir):
         variant = json.load(f)
     return variant
 
-import numpy as np
+
 def save_variant(variant, log_dir):
     """Saves a `variant.json` file to the directory."""
-    mod_var = deepcopy(variant)
-    if 'model' in mod_var.keys():
-        if 'prev_action' in mod_var['model'].keys() and isinstance(mod_var['model']['prev_action'], np.ndarray): mod_var['model']['prev_action'] = mod_var['model']['prev_action'].tolist()
-        if 'prev_reward' in mod_var['model'].keys() and isinstance(mod_var['model']['prev_reward'], np.ndarray): mod_var['model']['prev_reward'] = mod_var['model']['prev_reward'].tolist()
-        if 'prev_option' in mod_var['model'].keys() and isinstance(mod_var['model']['prev_option'], np.ndarray): mod_var['model']['prev_option'] = mod_var['model']['prev_option'].tolist()
-
     with open(osp.join(log_dir, VARIANT), "w") as f:
-        json.dump(mod_var, f)
+        json.dump(variant, f)
 
 
 def update_config(default, variant):

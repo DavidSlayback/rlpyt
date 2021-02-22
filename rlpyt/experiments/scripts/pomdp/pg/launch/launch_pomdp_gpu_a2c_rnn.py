@@ -18,7 +18,7 @@ affinity_code = encode_affinity(
     alternating=True
 )
 
-runs_per_setting = 5  # 3 runs
+runs_per_setting = 10  # 3 runs
 # Paths
 path_a2c = (pathlib.Path(__file__).resolve().parent.parent / 'train' / "b_pomdp_ff_a2c_gpu.py").as_posix()
 path_a2oc = (pathlib.Path(__file__).resolve().parent.parent / 'train' / "b_pomdp_ff_a2oc_gpu.py").as_posix()
@@ -48,15 +48,15 @@ piolr_key = [("algo", "pi_omega_lr")]
 intlr_key = [("algo", "interest_lr")]
 delib_key = [("algo", "delib_cost")]
 
-pas = list(zip([0, 1, 2, 3]))
+pas = list(zip(['None', 'Pi', 'V', 'PiV']))
 pa_names = ["NoAct", "ActPi", "ActV", "ActPiV"]
 pa_key = [("model", "prev_action")]
-pas_s = list(zip([0, 3]))
+pas_s = list(zip(['None', 'PiV']))
 pa_names_s = ["NoAct", "ActPiV"]
 
-prs = list(zip([0, 1, 2, 3]))
+prs = list(zip(['None', 'Pi', 'V', 'PiV']))
 pr_names = ["NoRew", "RewPi", "RewV", "RewPiV"]
-prs_s = list(zip([0, 3]))
+prs_s = list(zip(['None', 'PiV']))
 pr_names_s = ["NoRew", "RewPiV"]
 pr_key = [("model", "prev_reward")]
 
@@ -99,8 +99,11 @@ delib_names = ["DELIB_{}".format(*v) for v in OC_DELIB]
 obs_names = ["OMNI_{}".format(*v) for v in FOMDP]
 int_names = ["INT_{}".format(*v) for v in INTEREST]
 nopt_names = ["NOPT_{}".format(*v) for v in NUM_OPTIONS]
+single_rnn_key = shared_proc_key + rnn_place_key
+single_rnn = list(zip([False, True, True], [0, 0, 1]))
+single_rnn_names = ['Unshared0','Shared0', 'Shared1']
 
-# A2C RNN
+# A2C
 # experiment_title = "A2C_Pomdp"
 # variant_levels = list()
 # # variant_levels.append(VariantLevel(B_T_env_key, ENVS_PLUS_B_T, env_names))  # pomdps
@@ -125,55 +128,54 @@ nopt_names = ["NOPT_{}".format(*v) for v in NUM_OPTIONS]
 # )
 
 # A2C RNN
-# experiment_title = "A2CRnn_Pomdp"
-# variant_levels = list()
-# # variant_levels.append(VariantLevel(B_T_env_key, ENVS_PLUS_B_T, env_names))  # pomdps
-# variant_levels.append(VariantLevel(envs_plus_params_key, ENVS_PLUS_PARAMS, env_names))  # pomdps
-# # variant_levels.append(VariantLevel(batch_T_key, B_T, ["{}".format(*v) for v in B_T]))  # pomdps
-# # variant_levels.append(VariantLevel(fomdp_key, FOMDP, obs_names))  # full or partial observability
-# # variant_levels.append(VariantLevel(rnn_type_key, RNN, rnn_names))  # Types of recurrency
-# variant_levels.append(VariantLevel(shared_proc_key, SHARED_PROC, shared_proc_names))  # Shared processor
-# variant_levels.append(VariantLevel(rnn_place_key, RNN_PLACE, rnn_place_names))  # Rnn Placement
-# variant_levels.append(VariantLevel(pa_key, pas_s, pa_names_s))  # Rnn Placement
-# variant_levels.append(VariantLevel(pr_key, prs_s, pr_names_s))  # Rnn Placement
-# # variant_levels.append(VariantLevel(rnn_size_key, RNN_SIZE, rnn_size_names))  # Sizes of recurrency
-# # variant_levels.append(VariantLevel(layer_norm_key, LAYER_NORM, ['rnn_norm', 'no_norm']))  # Sizes of recurrency
-# # variant_levels.append(VariantLevel(lr_key, lrs, [str(*v) for v in lrs]))  # Learning rates
-# variants, log_dirs = make_variants(*variant_levels)
-# run_experiments(
-#     script=path_a2c_rnn,
-#     affinity_code=affinity_code,
-#     experiment_title=experiment_title,
-#     runs_per_setting=runs_per_setting,
-#     variants=variants,
-#     log_dirs=log_dirs,
-#     common_args=(default_key_rnn,),
-# )
+experiment_title = "A2CRnn_Pomdp"
+variant_levels = list()
+# variant_levels.append(VariantLevel(B_T_env_key, ENVS_PLUS_B_T, env_names))  # pomdps
+variant_levels.append(VariantLevel(envs_plus_params_key, ENVS_PLUS_PARAMS, env_names))  # pomdps
+# variant_levels.append(VariantLevel(batch_T_key, B_T, ["{}".format(*v) for v in B_T]))  # pomdps
+# variant_levels.append(VariantLevel(fomdp_key, FOMDP, obs_names))  # full or partial observability
+# variant_levels.append(VariantLevel(rnn_type_key, RNN, rnn_names))  # Types of recurrency
+variant_levels.append(VariantLevel(single_rnn_key, [single_rnn[-1]], [single_rnn_names[-1]]))  # Shared processor or unshared 1 rnn
+variant_levels.append(VariantLevel(pa_key, pas_s, pa_names_s))  # Rnn Placement
+variant_levels.append(VariantLevel(pr_key, prs_s, pr_names_s))  # Rnn Placement
+# variant_levels.append(VariantLevel(rnn_size_key, RNN_SIZE, rnn_size_names))  # Sizes of recurrency
+# variant_levels.append(VariantLevel(layer_norm_key, LAYER_NORM, ['rnn_norm', 'no_norm']))  # Sizes of recurrency
+# variant_levels.append(VariantLevel(lr_key, lrs, [str(*v) for v in lrs]))  # Learning rates
+variants, log_dirs = make_variants(*variant_levels)
+run_experiments(
+    script=path_a2c_rnn,
+    affinity_code=affinity_code,
+    experiment_title=experiment_title,
+    runs_per_setting=runs_per_setting,
+    variants=variants,
+    log_dirs=log_dirs,
+    common_args=(default_key_rnn,),
+)
 # For unshared
-# experiment_title = "A2CRnn_Pomdp"
-# variant_levels = list()
-# # variant_levels.append(VariantLevel(B_T_env_key, ENVS_PLUS_B_T, env_names))  # pomdps
-# variant_levels.append(VariantLevel(envs_plus_params_key, ENVS_PLUS_PARAMS, env_names))  # pomdps
-# # variant_levels.append(VariantLevel(batch_T_key, B_T, ["{}".format(*v) for v in B_T]))  # pomdps
-# # variant_levels.append(VariantLevel(fomdp_key, FOMDP, obs_names))  # full or partial observability
-# # variant_levels.append(VariantLevel(rnn_type_key, RNN, rnn_names))  # Types of recurrency
-# variant_levels.append(VariantLevel(shared_proc_key, [(False,)], ['Unshared']))  # Shared processor
-# variant_levels.append(VariantLevel(rnn_place_key, [(1,)], ['After']))  # Rnn Placement
-# variant_levels.append(VariantLevel(pa_key, pas[1:3], pa_names[1:3]))  # Rnn Placement
-# variant_levels.append(VariantLevel(pr_key, prs[1:3], pr_names[1:3]))  # Rnn Placement
-# # variant_levels.append(VariantLevel(rnn_size_key, RNN_SIZE, rnn_size_names))  # Sizes of recurrency
-# # variant_levels.append(VariantLevel(layer_norm_key, LAYER_NORM, ['rnn_norm', 'no_norm']))  # Sizes of recurrency
-# # variant_levels.append(VariantLevel(lr_key, lrs, [str(*v) for v in lrs]))  # Learning rates
-# variants, log_dirs = make_variants(*variant_levels)
-# run_experiments(
-#     script=path_a2c_rnn,
-#     affinity_code=affinity_code,
-#     experiment_title=experiment_title,
-#     runs_per_setting=runs_per_setting,
-#     variants=variants,
-#     log_dirs=log_dirs,
-#     common_args=(default_key_rnn,),
-# )
+experiment_title = "A2CRnn_Pomdp"
+variant_levels = list()
+# variant_levels.append(VariantLevel(B_T_env_key, ENVS_PLUS_B_T, env_names))  # pomdps
+variant_levels.append(VariantLevel(envs_plus_params_key, ENVS_PLUS_PARAMS, env_names))  # pomdps
+# variant_levels.append(VariantLevel(batch_T_key, B_T, ["{}".format(*v) for v in B_T]))  # pomdps
+# variant_levels.append(VariantLevel(fomdp_key, FOMDP, obs_names))  # full or partial observability
+# variant_levels.append(VariantLevel(rnn_type_key, RNN, rnn_names))  # Types of recurrency
+variant_levels.append(VariantLevel(shared_proc_key, [(False,)], ['Unshared']))  # Shared processor
+variant_levels.append(VariantLevel(rnn_place_key, [(1,)], ['After']))  # Rnn Placement
+variant_levels.append(VariantLevel(pa_key, pas, pa_names))  # Rnn Placement
+variant_levels.append(VariantLevel(pr_key, prs, pr_names))  # Rnn Placement
+# variant_levels.append(VariantLevel(rnn_size_key, RNN_SIZE, rnn_size_names))  # Sizes of recurrency
+# variant_levels.append(VariantLevel(layer_norm_key, LAYER_NORM, ['rnn_norm', 'no_norm']))  # Sizes of recurrency
+# variant_levels.append(VariantLevel(lr_key, lrs, [str(*v) for v in lrs]))  # Learning rates
+variants, log_dirs = make_variants(*variant_levels)
+run_experiments(
+    script=path_a2c_rnn,
+    affinity_code=affinity_code,
+    experiment_title=experiment_title,
+    runs_per_setting=runs_per_setting,
+    variants=variants,
+    log_dirs=log_dirs,
+    common_args=(default_key_rnn,),
+)
 
 # A2OC
 # experiment_title = "A2OC_Pomdp"
@@ -196,14 +198,14 @@ nopt_names = ["NOPT_{}".format(*v) for v in NUM_OPTIONS]
 #     common_args=(oc_key,),
 # )
 
-use_all = np.ones(5, bool)
-use_none = np.zeros(5, bool)
-use_pi = np.array([1,0,0,0,0], dtype=bool)
-use_beta = np.array([0,1,0,0,0], dtype=bool)
-use_q = np.array([0,0,1,0,0], dtype=bool)
-use_pio = np.array([0,0,0,1,0], dtype=bool)
-use_pi_all = np.logical_or(use_pi, use_pio)
-use_int = np.array([0,0,0,0,1], dtype=bool)
+use_all = 'All'
+use_none = 'None'
+use_pi = 'Pi'
+use_beta = 'Beta'
+use_q = 'Q'
+use_pio = 'PIo'
+use_pi_all = 'PiPIo'
+use_int = 'Int'
 oc_prs = list(zip([use_none, use_all]))
 oc_prs_unshared = list(zip([use_none, use_all, use_q]))
 oc_pr_names = ['NoReward', 'Reward']
@@ -217,57 +219,54 @@ oc_po_names = ['NoOption', 'Option']
 oc_pos_unshared = list(zip([use_none, use_all, use_pi_all, use_pio]))
 oc_po_unshared_names = ['NoOption', 'AllOption', 'AllPolicyOption', 'InterPolicyOption']
 
-single_rnn_key = shared_proc_key + rnn_place_key
-single_rnn = list(zip([False, True, True], [0, 0, 1]))
-single_rnn_names = ['Unshared0','Shared0', 'Shared1']
 # A2OC RNN (shared processor)
-experiment_title = "A2OCRnn_Pomdp"
-variant_levels = list()
-# variant_levels.append(VariantLevel(B_T_env_key, ENVS_PLUS_B_T, env_names))  # pomdps
-variant_levels.append(VariantLevel(envs_plus_params_key, ENVS_PLUS_PARAMS, env_names))  # pomdps
-# variant_levels.append(VariantLevel(fomdp_key, FOMDP, obs_names))  # full or partial observability
-# variant_levels.append(VariantLevel(delib_key, OC_DELIB, delib_names))  # Option deliberation cost
-# variant_levels.append(VariantLevel(nopt_key, NUM_OPTIONS, nopt_names))  # Number of options
-variant_levels.append(VariantLevel(single_rnn_key, single_rnn, single_rnn_names))  # Shared processor
-# variant_levels.append(VariantLevel(rnn_place_key, RNN_PLACE, rnn_place_names))
-variant_levels.append(VariantLevel(interest_key, INTEREST, int_names))  # Use of interest function
-variant_levels.append(VariantLevel(pa_key, oc_pas, oc_pa_names))  # Rnn Placement
-variant_levels.append(VariantLevel(pr_key, oc_prs, oc_pr_names))  # Rnn Placement
-variant_levels.append(VariantLevel(po_key, oc_pos, oc_po_names))  # Rnn Placement
-# variant_levels.append(VariantLevel(tlr_key, tlrs, [str(*v) for v in tlrs]))  # Termination learning rate
-variants, log_dirs = make_variants(*variant_levels)
-run_experiments(
-    script=path_a2oc_rnn,
-    affinity_code=affinity_code,
-    experiment_title=experiment_title,
-    runs_per_setting=runs_per_setting,
-    variants=variants,
-    log_dirs=log_dirs,
-    common_args=(oc_key_rnn,),
-)
-
-# A2OC RNN (unshared processor)
-experiment_title = "A2OCRnn_Pomdp"
-variant_levels = list()
-# variant_levels.append(VariantLevel(B_T_env_key, ENVS_PLUS_B_T, env_names))  # pomdps
-variant_levels.append(VariantLevel(envs_plus_params_key, ENVS_PLUS_PARAMS, env_names))  # pomdps
-# variant_levels.append(VariantLevel(fomdp_key, FOMDP, obs_names))  # full or partial observability
-# variant_levels.append(VariantLevel(delib_key, OC_DELIB, delib_names))  # Option deliberation cost
-# variant_levels.append(VariantLevel(nopt_key, NUM_OPTIONS, nopt_names))  # Number of options
-variant_levels.append(VariantLevel(shared_proc_key, [SHARED_PROC[0]], [shared_proc_names[0]]))  # Unshared processor
-variant_levels.append(VariantLevel(rnn_place_key, [RNN_PLACE[1]], [rnn_place_names[1]]))  # Rnn after
-variant_levels.append(VariantLevel(interest_key, INTEREST, int_names))  # Use of interest function
-variant_levels.append(VariantLevel(pa_key, oc_pas_unshared, oc_pa_unshared_names))  # Rnn Placement
-variant_levels.append(VariantLevel(pr_key, oc_prs_unshared, oc_pr_unshared_names))  # Rnn Placement
-variant_levels.append(VariantLevel(po_key, oc_pos_unshared, oc_po_unshared_names))  # Rnn Placement
-# variant_levels.append(VariantLevel(tlr_key, tlrs, [str(*v) for v in tlrs]))  # Termination learning rate
-variants, log_dirs = make_variants(*variant_levels)
-run_experiments(
-    script=path_a2oc_rnn,
-    affinity_code=affinity_code,
-    experiment_title=experiment_title,
-    runs_per_setting=runs_per_setting,
-    variants=variants,
-    log_dirs=log_dirs,
-    common_args=(oc_key_rnn,),
-)
+# experiment_title = "A2OCRnn_Pomdp"
+# variant_levels = list()
+# # variant_levels.append(VariantLevel(B_T_env_key, ENVS_PLUS_B_T, env_names))  # pomdps
+# variant_levels.append(VariantLevel(envs_plus_params_key, ENVS_PLUS_PARAMS, env_names))  # pomdps
+# # variant_levels.append(VariantLevel(fomdp_key, FOMDP, obs_names))  # full or partial observability
+# # variant_levels.append(VariantLevel(delib_key, OC_DELIB, delib_names))  # Option deliberation cost
+# # variant_levels.append(VariantLevel(nopt_key, NUM_OPTIONS, nopt_names))  # Number of options
+# variant_levels.append(VariantLevel(single_rnn_key, single_rnn, single_rnn_names))  # Shared processor
+# # variant_levels.append(VariantLevel(rnn_place_key, RNN_PLACE, rnn_place_names))
+# variant_levels.append(VariantLevel(interest_key, INTEREST, int_names))  # Use of interest function
+# variant_levels.append(VariantLevel(pa_key, oc_pas, oc_pa_names))  # Rnn Placement
+# variant_levels.append(VariantLevel(pr_key, oc_prs, oc_pr_names))  # Rnn Placement
+# variant_levels.append(VariantLevel(po_key, oc_pos, oc_po_names))  # Rnn Placement
+# # variant_levels.append(VariantLevel(tlr_key, tlrs, [str(*v) for v in tlrs]))  # Termination learning rate
+# variants, log_dirs = make_variants(*variant_levels)
+# run_experiments(
+#     script=path_a2oc_rnn,
+#     affinity_code=affinity_code,
+#     experiment_title=experiment_title,
+#     runs_per_setting=runs_per_setting,
+#     variants=variants,
+#     log_dirs=log_dirs,
+#     common_args=(oc_key_rnn,),
+# )
+#
+# # A2OC RNN (unshared processor)
+# experiment_title = "A2OCRnn_Pomdp"
+# variant_levels = list()
+# # variant_levels.append(VariantLevel(B_T_env_key, ENVS_PLUS_B_T, env_names))  # pomdps
+# variant_levels.append(VariantLevel(envs_plus_params_key, ENVS_PLUS_PARAMS, env_names))  # pomdps
+# # variant_levels.append(VariantLevel(fomdp_key, FOMDP, obs_names))  # full or partial observability
+# # variant_levels.append(VariantLevel(delib_key, OC_DELIB, delib_names))  # Option deliberation cost
+# # variant_levels.append(VariantLevel(nopt_key, NUM_OPTIONS, nopt_names))  # Number of options
+# variant_levels.append(VariantLevel(shared_proc_key, [SHARED_PROC[0]], [shared_proc_names[0]]))  # Unshared processor
+# variant_levels.append(VariantLevel(rnn_place_key, [RNN_PLACE[1]], [rnn_place_names[1]]))  # Rnn after
+# variant_levels.append(VariantLevel(interest_key, INTEREST, int_names))  # Use of interest function
+# variant_levels.append(VariantLevel(pa_key, oc_pas_unshared, oc_pa_unshared_names))  # Rnn Placement
+# variant_levels.append(VariantLevel(pr_key, oc_prs_unshared, oc_pr_unshared_names))  # Rnn Placement
+# variant_levels.append(VariantLevel(po_key, oc_pos_unshared, oc_po_unshared_names))  # Rnn Placement
+# # variant_levels.append(VariantLevel(tlr_key, tlrs, [str(*v) for v in tlrs]))  # Termination learning rate
+# variants, log_dirs = make_variants(*variant_levels)
+# run_experiments(
+#     script=path_a2oc_rnn,
+#     affinity_code=affinity_code,
+#     experiment_title=experiment_title,
+#     runs_per_setting=runs_per_setting,
+#     variants=variants,
+#     log_dirs=log_dirs,
+#     common_args=(oc_key_rnn,),
+# )

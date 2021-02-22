@@ -15,6 +15,24 @@ RnnState = namedarraytuple("RnnState", ["h", "c"])  # For downstream namedarrayt
 DualRnnState = namedarraytuple("DualRnnState", ["pi", "v"])
 IocRnnState = namedarraytuple("IocRnnState", ["pi", "beta", "q", "pi_omega", "interest"])
 OcRnnState = namedarraytuple("OcRnnState", ["pi", "beta", "q", "pi_omega"])
+
+ALL, NONE = 'All', 'None'
+ac_previous_input_names = ['Pi', 'V']
+def ac_name_to_int(acname: str) -> int:
+    """Convert string name input to int flag to pass to submodels"""
+    i = 0  # 0 if None
+    i += (ac_previous_input_names[0] in acname)  # 1, 3 if pi
+    i += (2*ac_previous_input_names[1] in acname)  # 2, 3 if v
+    i = 3 if acname == ALL else i  # 3 if All
+    return i
+oc_previous_input_names = ['Pi', 'Beta', 'Q', 'PIo', 'Int']
+def oc_name_to_array(ocname: str) -> np.ndarray:
+    i = np.zeros(5, dtype=bool)
+    for j, name in enumerate(oc_previous_input_names):
+        if name in ocname: i[j] = True
+    if ocname == 'All': i[:] = True
+    return i
+
 # GruState = namedarraytuple("GruState", ["h"])
 
 class ScriptedRNN(nn.Module):
@@ -302,14 +320,16 @@ class POMDPRnnModel(nn.Module):
                  shared_processor: bool = False,
                  rnn_placement: int = 1,
                  layer_norm: bool = False,
-                 prev_action: int = 2,
-                 prev_reward: int = 2,
+                 prev_action: str = 'All',
+                 prev_reward: str = 'All',
                  ):
         super().__init__()
-        if shared_processor and rnn_placement == 0: self.model = POMDPRnnShared0Rnn(input_classes, output_size, rnn_type, rnn_size, hidden_sizes, inits is not None, layer_norm, prev_action, prev_reward)
-        elif shared_processor and rnn_placement == 1: self.model = POMDPRnnShared1Rnn(input_classes, output_size, rnn_type, rnn_size, hidden_sizes, inits is not None, layer_norm, prev_action, prev_reward)
-        elif not shared_processor and rnn_placement == 0: self.model = POMDPRnnUnshared0Rnn(input_classes, output_size, rnn_type, rnn_size, hidden_sizes, inits is not None, layer_norm, prev_action, prev_reward)
-        elif not shared_processor and rnn_placement == 1: self.model = POMDPRnnUnshared1Rnn(input_classes, output_size, rnn_type, rnn_size, hidden_sizes, inits is not None, layer_norm, prev_action, prev_reward)
+        pa = ac_name_to_int(prev_action)
+        pr = ac_name_to_int(prev_reward)
+        if shared_processor and rnn_placement == 0: self.model = POMDPRnnShared0Rnn(input_classes, output_size, rnn_type, rnn_size, hidden_sizes, inits is not None, layer_norm, pa, pr)
+        elif shared_processor and rnn_placement == 1: self.model = POMDPRnnShared1Rnn(input_classes, output_size, rnn_type, rnn_size, hidden_sizes, inits is not None, layer_norm, pa, pr)
+        elif not shared_processor and rnn_placement == 0: self.model = POMDPRnnUnshared0Rnn(input_classes, output_size, rnn_type, rnn_size, hidden_sizes, inits is not None, layer_norm, pa, pr)
+        elif not shared_processor and rnn_placement == 1: self.model = POMDPRnnUnshared1Rnn(input_classes, output_size, rnn_type, rnn_size, hidden_sizes, inits is not None, layer_norm, pa, pr)
 
     def forward(self, observation, prev_action, prev_reward, init_rnn_state):
         return self.model(observation, prev_action, prev_reward, init_rnn_state)
@@ -644,14 +664,14 @@ class POMDPOcRnnModel(nn.Module):
                  use_diversity: bool = False,  # TDEOC q entropy output
                  use_attention: bool = False,
                  layer_norm: bool = True,
-                 prev_action: np.ndarray = np.ones(5, dtype=bool),
-                 prev_reward: np.ndarray = np.ones(5, dtype=bool),
-                 prev_option: np.ndarray = np.zeros(5, dtype=bool)
+                 prev_action: str = 'All',
+                 prev_reward: str = 'All',
+                 prev_option: str = 'None'
                  ):
         super().__init__()
-        prev_action = np.array(prev_action, dtype=bool)
-        prev_reward = np.array(prev_reward, dtype=bool)
-        prev_option = np.array(prev_option, dtype=bool)
+        prev_action = oc_name_to_array(prev_action)
+        prev_reward = oc_name_to_array(prev_reward)
+        prev_option = oc_name_to_array(prev_option)
         if shared_processor and rnn_placement == 0:
             self.model = POMDPOcRnnShared0Model(input_classes, output_size, option_size, hidden_sizes, rnn_type, rnn_size,
                                             inits is not None, layer_norm, use_interest, use_diversity, use_attention,
