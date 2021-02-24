@@ -15,10 +15,10 @@ affinity_code = encode_affinity(
     n_gpu=1,
     contexts_per_gpu=6,
     n_socket=1,
-    alternating=True
+    alternating=False
 )
 
-runs_per_setting = 10  # 3 runs
+runs_per_setting = 3  # 3 runs
 # Paths
 path_a2c = (pathlib.Path(__file__).resolve().parent.parent / 'train' / "b_pomdp_ff_a2c_gpu.py").as_posix()
 path_a2oc = (pathlib.Path(__file__).resolve().parent.parent / 'train' / "b_pomdp_ff_a2oc_gpu.py").as_posix()
@@ -73,7 +73,8 @@ OC_DELIB = list(zip([0., 0.05, 0.5]))
 
 ENV = list(zip(['POMDP-rock_sample_5_4-continuing-v2']))  # Subselect
 # ENVS_PLUS_PARAMS = list(zip([30, 30], [100, 100], ['POMDP-hallway-continuing-v0', 'POMDP-hallway2-continuing-v0'], [int(5e5), int(2e6)]))  # B, T, ENVS, N_STEPS
-ENVS_PLUS_PARAMS = list(zip([30, 30], [20, 20], ['POMDP-hallway-continuing-v0', 'POMDP-hallway2-continuing-v0'], [int(2e6), int(6e6)]))  # B, T, ENVS, N_STEPS
+# ENVS_PLUS_PARAMS = list(zip([30, 30], [20, 20], ['POMDP-hallway-continuing-v0', 'POMDP-hallway2-continuing-v0'], [int(2e6), int(6e6)]))  # B, T, ENVS, N_STEPS
+ENVS_PLUS_PARAMS = list(zip(['POMDP-shopping_5-continuing-v1', 'POMDP-heavenhell_4-continuing-v0', 'POMDP-rock_sample_5_4-continuing-v2', 'POMDP-tiger-continuing-v0'], [int(1e7), int(1e7), int(1e7), int(2e6)]))  # ENVS, N_STEPS
 B_T = list(zip([10, 20, 50, 100]))
 ENV_PLUS_B_T = list(zip([6], [100], ['POMDP-rock_sample_5_4-continuing-v2']))
 # Variant keys
@@ -83,10 +84,10 @@ game_key = [("env", "id")]
 nstep_key = [("runner", "n_steps")]
 env_plus_B_key = batch_B_key + game_key
 B_T_env_key = batch_B_key + batch_T_key + game_key
-envs_plus_params_key = batch_B_key + batch_T_key + game_key + nstep_key
+envs_plus_params_key = game_key + nstep_key
 envs_plus_step_key = game_key + nstep_key
 # ENVS_PLUS_STEPS = list(zip(['POMDP-hallway-episodic-v0', 'POMDP-hallway2-episodic-v0'], [int(2e6), int(5e6)]))
-ENVS = list(zip(['POMDP-hallway-continuing-v0', 'POMDP-hallway2-continuing-v0']))
+ENVS = list(zip(['POMDP-shopping_5-continuing-v1', 'POMDP-heavenhell_4-continuing-v0', 'POMDP-rock_sample_5_4-continuing-v2', 'POMDP-tiger-continuing-v0']))
 ENVS_PLUS_STEPS = list(zip(['POMDP-hallway-continuing-v0', 'POMDP-hallway2-continuing-v0'], [int(2e6), int(5e6)]))
 # Common directory names
 env_names = ["{}".format(*v) for v in ENVS]
@@ -132,7 +133,7 @@ experiment_title = "A2CRnn_Pomdp"
 variant_levels = list()
 # variant_levels.append(VariantLevel(B_T_env_key, ENVS_PLUS_B_T, env_names))  # pomdps
 variant_levels.append(VariantLevel(envs_plus_params_key, ENVS_PLUS_PARAMS, env_names))  # pomdps
-# variant_levels.append(VariantLevel(batch_T_key, B_T, ["{}".format(*v) for v in B_T]))  # pomdps
+variant_levels.append(VariantLevel(batch_T_key, B_T, ["{}".format(*v) for v in B_T]))  # pomdps
 # variant_levels.append(VariantLevel(fomdp_key, FOMDP, obs_names))  # full or partial observability
 # variant_levels.append(VariantLevel(rnn_type_key, RNN, rnn_names))  # Types of recurrency
 variant_levels.append(VariantLevel(single_rnn_key, [single_rnn[-1]], [single_rnn_names[-1]]))  # Shared processor or unshared 1 rnn
@@ -156,7 +157,7 @@ experiment_title = "A2CRnn_Pomdp"
 variant_levels = list()
 # variant_levels.append(VariantLevel(B_T_env_key, ENVS_PLUS_B_T, env_names))  # pomdps
 variant_levels.append(VariantLevel(envs_plus_params_key, ENVS_PLUS_PARAMS, env_names))  # pomdps
-# variant_levels.append(VariantLevel(batch_T_key, B_T, ["{}".format(*v) for v in B_T]))  # pomdps
+variant_levels.append(VariantLevel(batch_T_key, B_T, ["{}".format(*v) for v in B_T]))  # pomdps
 # variant_levels.append(VariantLevel(fomdp_key, FOMDP, obs_names))  # full or partial observability
 # variant_levels.append(VariantLevel(rnn_type_key, RNN, rnn_names))  # Types of recurrency
 variant_levels.append(VariantLevel(shared_proc_key, [(False,)], ['Unshared']))  # Shared processor

@@ -79,7 +79,7 @@ def launch_experiment(
 
 def run_experiments(script, affinity_code, experiment_title, runs_per_setting,
         variants, log_dirs, common_args=None, runs_args=None,
-        set_egl_device=False):
+        set_egl_device=False, run_start_idx=0):
     """Call in a script to run a set of experiments locally on a machine.  Uses
     the ``launch_experiment()`` function for each individual run, which is a 
     call to the ``script`` file.  The number of experiments to run at the same
@@ -106,7 +106,7 @@ def run_experiments(script, affinity_code, experiment_title, runs_per_setting,
     assert len(runs_args) == len(variants)
     log_exps_tree(exp_dir, log_dirs, runs_per_setting)
     num_launched, total = 0, runs_per_setting * len(variants)
-    for run_ID in range(runs_per_setting):
+    for run_ID in range(run_start_idx, runs_per_setting+run_start_idx):
         for variant, log_dir, run_args in zip(variants, log_dirs, runs_args):
             launched = False
             log_dir = osp.join(exp_dir, log_dir)

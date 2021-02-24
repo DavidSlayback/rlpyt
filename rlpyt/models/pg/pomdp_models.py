@@ -22,7 +22,7 @@ def ac_name_to_int(acname: str) -> int:
     """Convert string name input to int flag to pass to submodels"""
     i = 0  # 0 if None
     i += (ac_previous_input_names[0] in acname)  # 1, 3 if pi
-    i += (2*ac_previous_input_names[1] in acname)  # 2, 3 if v
+    i += 2*(ac_previous_input_names[1] in acname)  # 2, 3 if v
     i = 3 if acname == ALL else i  # 3 if All
     return i
 oc_previous_input_names = ['Pi', 'Beta', 'Q', 'PIo', 'Int']

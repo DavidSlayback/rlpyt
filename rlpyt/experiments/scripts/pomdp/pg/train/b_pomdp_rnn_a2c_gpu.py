@@ -35,7 +35,7 @@ def build_and_train(slot_affinity_code, log_dir, run_ID, config_key):
     sampler = BatchPOMDPSampler(env=env, **config["sampler"])
 
     algo = A2C(optim_kwargs=config["optim"], **config["algo"])
-    agent = AlternatingPomdpRnnAgent(model_kwargs=config["model"], **config["agent"])
+    agent = PomdpRnnAgent(model_kwargs=config["model"], **config["agent"])
     runner = MinibatchRl(
         algo=algo,
         agent=agent,
