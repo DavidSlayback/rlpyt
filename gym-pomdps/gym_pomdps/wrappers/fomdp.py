@@ -92,12 +92,6 @@ class AutoresettingBatchPOMDP(gym.Wrapper):
         s_random, o_random = np.split(self.np_random.rand(self.batch_size*2), 2)  # Random numbers are expensive, draw all of them here
         s = vectorized_multinomial(self.env.T[state, action], s_random)
         o = vectorized_multinomial(self.env.O[state, action, s], o_random)
-        # s = np.array([
-        #     self.np_random.multinomial(1,p).argmax() for p in self.env.T[state, action]
-        # ])
-        # o = np.array([
-        #     self.np_random.multinomial(1, p).argmax() for p in self.env.O[state, action, s]
-        # ])
         r = self.env.R[state, action, s, o]
         self.elapsed_time += 1
         d = self.elapsed_time >= self.max_time
@@ -109,6 +103,10 @@ class AutoresettingBatchPOMDP(gym.Wrapper):
         reward_cat = [self.rewards_dict[r_] for r_ in r]
         info = dict(reward_cat=reward_cat)
         return s, o, r, d, info
+
+    @property
+    def discount(self):
+        return self.env.discount
 
 if __name__ == "__main__":
     b = 30
