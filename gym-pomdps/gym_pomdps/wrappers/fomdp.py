@@ -1,9 +1,13 @@
 import gym
 import numpy as np
+from functools import partial
 
 from gym_pomdps.envs import POMDP
 
 __all__ = ['FullyObservablePOMDP', 'PartiallyObservablePOMDP', 'AutoresettingBatchPOMDP']
+
+def one_hot_preprocessor(observations: np.ndarray, num_classes: int):
+    return np.eye(num_classes, dtype=np.float32)[observations]
 
 def vectorized_multinomial(selected_prob_matrix, random_numbers):
     """Vectorized sample from [B,N] probabilitity matrix
@@ -47,7 +51,7 @@ class PartiallyObservablePOMDP(gym.Wrapper):
 class AutoresettingBatchPOMDP(gym.Wrapper):
     """Simulates multiple POMDP trajectories at the same time. Automatically reset completed trajectories. Must be applied to wrapped POMDP"""
 
-    def __init__(self, env, batch_size, fomdp=False, time_limit=None):
+    def __init__(self, env, batch_size, fomdp=False, time_limit=None, use_one_hot=True):
         if not isinstance(env.unwrapped, POMDP):
             raise TypeError(f'Env is not a POMDP (got {type(env)}).')
         if batch_size <= 0:
@@ -60,15 +64,18 @@ class AutoresettingBatchPOMDP(gym.Wrapper):
         else: self.observation_space = gym.spaces.Discrete(env.observation_space.n+1); self._observable = False; self._start_obs = env.observation_space.n
         self.max_time = time_limit or int(3000000)
         self.elapsed_time = np.zeros([batch_size], dtype=int)
+        self.use_one_hot = use_one_hot
+        self.preproc = partial(one_hot_preprocessor, num_classes=self.observation_space.n) if use_one_hot else lambda x: x
 
     def reset(self):  # pylint: disable=arguments-differ
         self.state = self.reset_functional()
         self.elapsed_time[:] = 0
-        return np.full([self.batch_size], self._start_obs, dtype=int) if not self._observable else self.state  # Hack to return some form of obs on reset
+        o = np.full([self.batch_size], self._start_obs, dtype=int) if not self._observable else self.state  # Hack to return some form of obs on reset
+        return self.preproc(o)
 
     def step(self, action):
         self.state, *ret = self.step_functional(self.state, action)
-        if self._observable: ret[0] = self.state
+        if self._observable: ret[0] = self.preproc(self.state)
         return ret
 
     def reset_functional(self, bsize=None):
@@ -102,7 +109,7 @@ class AutoresettingBatchPOMDP(gym.Wrapper):
         if not self._observable: o[d] = self._start_obs  # Reset obs to start
         reward_cat = [self.rewards_dict[r_] for r_ in r]
         info = dict(reward_cat=reward_cat)
-        return s, o, r, d, info
+        return s, self.preproc(o), r, d, info
 
     @property
     def discount(self):
